@@ -1,0 +1,1713 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Texas Hold 'Em Practice</title>
+<style>
+/* ── Reset & base ─────────────────────────────── */
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;width:100%;overflow:hidden;background:#071210;font-family:'Georgia',serif}
+#app{display:flex;flex-direction:column;width:100vw;height:100vh;color:#e8d5a3;overflow:hidden;--scale:1;--ui-scale:1}
+
+/* ── Settings bar ─────────────────────────────── */
+#settings-bar{
+  display:flex;align-items:center;gap:clamp(6px,1vw,14px);flex-wrap:wrap;
+  padding:calc(clamp(4px,0.5vh,8px) * var(--ui-scale)) calc(clamp(8px,1.2vw,16px) * var(--ui-scale));
+  background:#040d07;border-bottom:1px solid #1a4a22;
+  font-size:calc(clamp(10px,1.1vw,13px) * var(--ui-scale));flex-shrink:0;
+}
+#settings-bar label{color:#9abba0}
+#settings-bar input[type=number]{
+  width:calc(clamp(52px,4.5vw,70px) * var(--ui-scale));padding:2px 5px;
+  background:#0f2015;border:1px solid #2a5a32;border-radius:4px;
+  color:#e8d5a3;font-size:calc(clamp(10px,1.1vw,13px) * var(--ui-scale));
+}
+.btn-set{
+  padding:3px calc(clamp(8px,1vw,14px) * var(--ui-scale));border-radius:5px;
+  border:1px solid #2a5a32;background:#0f2015;color:#8fbb9a;
+  font-size:calc(clamp(10px,1.1vw,13px) * var(--ui-scale));cursor:pointer;font-family:Georgia,serif;
+}
+.btn-set:hover{background:#1a3a20}
+#phase-pill{
+  background:#0f2015;border:1px solid #1a4a22;border-radius:10px;
+  padding:2px 9px;font-size:calc(clamp(9px,1vw,12px) * var(--ui-scale));color:#6a9a7a;
+}
+#hand-counter{color:#6a9a7a;font-size:calc(clamp(9px,1vw,12px) * var(--ui-scale))}
+.blinds-label{color:#6a9a7a;font-size:calc(clamp(9px,1vw,12px) * var(--ui-scale))}
+.btn-toggle{
+  padding:3px calc(clamp(8px,1vw,14px) * var(--ui-scale));border-radius:5px;
+  border:1px solid #3a5a8a;background:#0f1a25;color:#8fb0d0;
+  font-size:calc(clamp(10px,1.1vw,13px) * var(--ui-scale));cursor:pointer;font-family:Georgia,serif;
+}
+.btn-toggle:hover{background:#1a2a3a}
+.btn-toggle.on{background:#2a5a3a;border-color:#3a8a4a;color:#c0f0c8}
+
+/* ── Stats strip — pot odds / equity / outs / SPR / position ──── */
+#stats-strip{
+  display:flex;flex-wrap:wrap;gap:calc(clamp(8px,1vw,18px) * var(--ui-scale));
+  align-items:center;
+  padding:calc(clamp(4px,.6vh,9px) * var(--ui-scale)) calc(clamp(8px,1.2vw,16px) * var(--ui-scale));
+  background:#08160d;border-bottom:1px solid #1a4a22;
+  font-size:calc(clamp(9px,.95vw,12px) * var(--ui-scale));flex-shrink:0;
+}
+.stat-chip{display:flex;align-items:center;gap:4px;white-space:nowrap}
+
+/* Hover tooltips on stat chips — brief general explanations.
+   Shown BELOW the stats strip (covering the table if needed) and sized
+   generously so the text is easy to read. */
+.stat-chip.has-tip{position:relative;cursor:help;border-bottom:1px dotted #3a5a45;padding-bottom:1px}
+.stat-chip.has-tip::after{
+  content:attr(data-tooltip);
+  position:absolute;
+  top:calc(100% + 12px);
+  left:50%;
+  transform:translateX(-50%);
+  width:min(86vw,420px);
+  background:#0d2417;
+  border:2px solid #3a8a4a;
+  color:#eef7e8;
+  font-size:16px;
+  font-weight:400;
+  line-height:1.55;
+  text-transform:none;
+  letter-spacing:normal;
+  white-space:normal;
+  padding:16px 18px;
+  border-radius:10px;
+  box-shadow:0 8px 24px rgba(0,0,0,.6);
+  opacity:0;
+  visibility:hidden;
+  pointer-events:none;
+  transition:opacity .15s ease;
+  z-index:150;
+}
+.stat-chip.has-tip::before{
+  content:"";
+  position:absolute;
+  top:calc(100% + 5px);
+  left:50%;
+  transform:translateX(-50%);
+  border:7px solid transparent;
+  border-bottom-color:#3a8a4a;
+  opacity:0;
+  visibility:hidden;
+  transition:opacity .15s ease;
+  z-index:150;
+}
+.stat-chip.has-tip:hover::after,
+.stat-chip.has-tip:hover::before{
+  opacity:1;
+  visibility:visible;
+}
+/* Edge chips: shift the tooltip so it stays on-screen instead of centering
+   off the left/right edge of the viewport */
+.stat-chip.tip-left::after{left:0;transform:translateX(0)}
+.stat-chip.tip-left::before{left:24px;transform:translateX(0)}
+.stat-chip.tip-right::after{left:auto;right:0;transform:translateX(0)}
+.stat-chip.tip-right::before{left:auto;right:24px;transform:translateX(0)}
+.stat-label{color:#6a9a7a;text-transform:uppercase;font-size:calc(clamp(8px,.8vw,10px) * var(--ui-scale));letter-spacing:.4px}
+.stat-val{color:#f0c030;font-weight:700}
+.stat-val.good{color:#7adb84}
+.stat-val.bad{color:#e0726a}
+.pos-badge{
+  background:#2a3a55;color:#aac4ee;border-radius:5px;padding:1px 7px;
+  font-size:calc(clamp(8px,.85vw,11px) * var(--ui-scale));font-weight:700;letter-spacing:.3px;
+}
+.grade-badge{
+  border-radius:5px;padding:1px 8px;font-size:calc(clamp(8px,.85vw,11px) * var(--ui-scale));font-weight:700;
+}
+.grade-Premium{background:#2a5a32;color:#9ef0a8}
+.grade-Strong{background:#2a4a5a;color:#9edcf0}
+.grade-Playable{background:#4a4a2a;color:#eee08a}
+.grade-Marginal{background:#5a3a1a;color:#f0b878}
+.grade-Trash{background:#5a1a1a;color:#f08a8a}
+
+/* Outs shown as miniature card chips instead of plain text */
+.outs-cards{display:inline-flex;gap:3px;margin-left:2px;flex-wrap:wrap;align-items:center}
+.outs-card{
+  display:inline-flex;flex-direction:column;align-items:center;justify-content:center;
+  width:calc(16px * var(--ui-scale));height:calc(20px * var(--ui-scale));
+  border-radius:3px;border:1px solid #c9c9c9;background:#fff;
+  font-weight:800;line-height:1;flex-shrink:0;
+}
+.outs-card .oc-rank{font-size:calc(8px * var(--ui-scale));line-height:1}
+.outs-card .oc-suit{font-size:calc(9px * var(--ui-scale));line-height:1}
+.outs-card.red{color:#cc1111}
+.outs-card.black{color:#111}
+.outs-more{font-size:calc(10px * var(--ui-scale));color:#9abba0;align-self:center}
+
+/* ── Table section — flex:1 so it fills remaining space ──────── */
+#table-section{
+  flex:1 1 0;position:relative;display:flex;
+  align-items:center;justify-content:center;
+  min-height:0;padding:clamp(4px,1vh,12px);
+  overflow:visible;
+}
+#table-wrap{
+  display:flex;flex-direction:column;align-items:center;
+  gap:clamp(4px,1vh,10px);
+  width:100%;height:100%;
+  justify-content:center;
+}
+#scale-row{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  flex-shrink:0;justify-content:center;
+  background:#08160d;border:1px solid #1a4a22;border-radius:20px;
+  padding:5px 16px;
+}
+#scale-row label{font-size:11px;color:#7a9a80;white-space:nowrap}
+#table-scale-slider,#ui-scale-slider{width:clamp(110px,16vw,220px);accent-color:#f0c030;cursor:pointer}
+#scale-val,#ui-scale-val{font-size:12px;color:#f0c030;font-weight:700;min-width:42px;text-align:right}
+.scale-divider{width:1px;height:18px;background:#1a4a22;flex-shrink:0}
+#table-felt{
+  width:calc(min(70vw,560px) * var(--scale));
+  height:calc(min(32vh,260px) * var(--scale));
+  max-width:96vw;
+  max-height:74vh;
+  background:radial-gradient(ellipse at center,#1e6b3d 55%,#124a2c 100%);
+  border-radius:50%;
+  border:calc(clamp(6px,1vw,11px) * var(--scale)) solid #3a1c00;
+  outline:calc(3px * var(--scale)) solid #5a3010;
+  position:relative;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:clamp(3px,0.4vh,6px);flex-shrink:0;
+  transition:width .15s ease,height .15s ease;
+}
+#pot-display{
+  font-size:calc(clamp(11px,1.3vw,16px) * var(--scale));color:#f0d060;font-weight:700;
+  text-shadow:0 1px 4px rgba(0,0,0,.7);letter-spacing:.4px;
+}
+
+/* ── Community cards ──────────────────────────── */
+#community{display:flex;gap:calc(clamp(3px,0.5vw,7px) * var(--scale));justify-content:center}
+.cc{
+  width:calc(clamp(26px,3vw,44px) * var(--scale));
+  height:calc(clamp(37px,4.3vw,62px) * var(--scale));
+  border-radius:4px;position:relative;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  font-weight:700;flex-shrink:0;
+}
+.cc.fu{background:#fff;border:1.5px solid #bbb}
+.cc.ph{background:rgba(255,255,255,.07);border:2px dashed rgba(255,255,255,.2)}
+.cc .ctl{position:absolute;top:2px;left:3px;font-size:calc(clamp(6px,.6vw,9px) * var(--scale));line-height:1.15}
+.cc .cbr{position:absolute;bottom:2px;right:3px;font-size:calc(clamp(6px,.6vw,9px) * var(--scale));line-height:1.15;transform:rotate(180deg)}
+.cc .csuitbig{font-size:calc(clamp(10px,1.2vw,17px) * var(--scale));line-height:1}
+.cc .crank{font-size:calc(clamp(8px,1vw,13px) * var(--scale));line-height:1}
+.cc.red .ctl,.cc.red .cbr,.cc.red .csuitbig,.cc.red .crank{color:#cc1111}
+.cc.black .ctl,.cc.black .cbr,.cc.black .csuitbig,.cc.black .crank{color:#111}
+
+/* ── Seat boxes ───────────────────────────────── */
+.seat{position:absolute;display:flex;flex-direction:column;align-items:center}
+.seat-box{
+  background:#0b1d12;border:2px solid #265230;border-radius:7px;
+  padding:calc(clamp(2px,.4vh,5px) * var(--scale)) calc(clamp(4px,.6vw,9px) * var(--scale));text-align:center;
+  min-width:calc(clamp(58px,6vw,86px) * var(--scale));transition:border-color .2s,background .2s;position:relative;
+}
+.seat-box.act{border-color:#f0c030;background:#192e18}
+.seat-box.fld{opacity:.35}
+/* Dealer puck */
+.seat-box.dlr::before{
+  content:"D";position:absolute;top:calc(-12px * var(--scale));left:50%;transform:translateX(-50%);
+  background:#f0c030;color:#000;border-radius:50%;
+  width:calc(15px * var(--scale));height:calc(15px * var(--scale));display:flex;align-items:center;justify-content:center;
+  font-size:calc(8px * var(--scale));font-weight:900;font-family:sans-serif;
+}
+/* SB chip — placed left so it doesn't overlap D button */
+.seat-box.is-sb::after{
+  content:"SB";position:absolute;top:calc(-13px * var(--scale));left:-2px;
+  background:#2266bb;color:#fff;border-radius:8px;
+  padding:1px calc(5px * var(--scale));font-size:calc(7px * var(--scale));font-weight:900;font-family:sans-serif;
+}
+/* BB chip */
+.seat-box.is-bb::after{
+  content:"BB";position:absolute;top:calc(-13px * var(--scale));left:-2px;
+  background:#bb7700;color:#fff;border-radius:8px;
+  padding:1px calc(5px * var(--scale));font-size:calc(7px * var(--scale));font-weight:900;font-family:sans-serif;
+}
+.sname{font-size:calc(clamp(7px,.8vw,10px) * var(--scale));color:#7a9a80;font-weight:600}
+.sstack{font-size:calc(clamp(8px,.9vw,12px) * var(--scale));color:#e8d5a3;font-weight:700}
+.sstat{font-size:calc(clamp(7px,.7vw,9px) * var(--scale));color:#cc4444;font-weight:700}
+.hole-cards{display:flex;gap:2px;justify-content:center;margin-top:2px}
+
+/* Bet chip — positioned OUTSIDE the seat box, on the side facing table center */
+.sbet{
+  position:absolute;
+  font-size:calc(clamp(9px,1vw,13px) * var(--scale));
+  color:#08160d;font-weight:800;
+  background:#f0c030;
+  border:1px solid #c89a1e;
+  border-radius:12px;
+  padding:calc(2px * var(--scale)) calc(8px * var(--scale));
+  white-space:nowrap;
+  box-shadow:0 2px 5px rgba(0,0,0,.4);
+  z-index:5;
+}
+/* direction variants — set by JS based on seat position relative to table center */
+.sbet.dir-top{    bottom:100%; left:50%;  transform:translate(-50%,-4px); }
+.sbet.dir-bottom{ top:100%;    left:50%;  transform:translate(-50%,4px); }
+.sbet.dir-left{   right:100%;  top:50%;   transform:translate(-4px,-50%); }
+.sbet.dir-right{  left:100%;   top:50%;   transform:translate(4px,-50%); }
+
+/* Small seat cards — face-down by default, face-up only for active seat */
+.smc{
+  width:calc(clamp(13px,1.3vw,19px) * var(--scale));height:calc(clamp(19px,1.9vw,27px) * var(--scale));
+  border-radius:3px;border:1px solid #bbb;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  font-size:calc(clamp(5px,.5vw,7px) * var(--scale));font-weight:700;line-height:1.1;flex-shrink:0;
+}
+/* face-up cards are shown bigger and bolder so rank/suit are easy to read */
+.smc.fu{
+  background:#fff;
+  width:calc(clamp(22px,2.4vw,34px) * var(--scale));
+  height:calc(clamp(32px,3.5vw,49px) * var(--scale));
+  border-width:1.5px;
+  gap:1px;
+}
+.smc.fu .smc-rank{font-size:calc(clamp(11px,1.3vw,18px) * var(--scale));line-height:1;font-weight:800}
+.smc.fu .smc-suit{font-size:calc(clamp(13px,1.5vw,21px) * var(--scale));line-height:1}
+.smc.fu.red{color:#cc1111}
+.smc.fu.black{color:#111}
+/* face-down style */
+.smc.fd{background:#1a4a88;border-color:#2a6acc}
+.smc.fd::after{
+  content:"";display:block;
+  width:calc(clamp(7px,.8vw,11px) * var(--scale));height:calc(clamp(11px,1.2vw,17px) * var(--scale));
+  border:1px solid rgba(255,255,255,.25);border-radius:2px;
+  background:repeating-linear-gradient(45deg,
+    rgba(255,255,255,.06) 0px,rgba(255,255,255,.06) 2px,
+    transparent 2px,transparent 4px);
+}
+
+/* ── Bottom panel — fixed height, no growth ────── */
+#bottom-panel{
+  flex-shrink:0;
+  background:#040d07;
+  border-top:2px solid #1a4a22;
+  display:flex;
+  flex-direction:column;
+}
+
+/* info-row: fixed height, no flex-grow on children */
+#info-row{
+  display:flex;
+  border-bottom:1px solid #1a4a22;
+  height:calc(clamp(90px,14vh,125px) * var(--ui-scale)); /* FIXED height, scalable */
+  flex-shrink:0;
+  overflow:hidden;
+}
+
+/* Current seat box — fixed, never grows */
+#turn-box{
+  flex:0 0 auto;
+  width:calc(clamp(160px,22vw,280px) * var(--ui-scale));
+  padding:calc(clamp(5px,.8vh,10px) * var(--ui-scale)) calc(clamp(8px,1.2vw,14px) * var(--ui-scale));
+  border-right:1px solid #1a4a22;
+  overflow:hidden;
+  display:flex;flex-direction:column;
+}
+#turn-box h3{flex:0 0 auto;font-size:calc(clamp(8px,.85vw,11px) * var(--ui-scale));color:#6a9a7a;text-transform:uppercase;letter-spacing:.7px;margin-bottom:3px}
+#cur-seat{flex:0 0 auto;font-size:calc(clamp(10px,1.1vw,14px) * var(--ui-scale));color:#f0c030;font-weight:700;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#turn-cards{
+  flex:1 1 auto;
+  display:flex;gap:calc(clamp(4px,.5vw,8px) * var(--ui-scale));align-items:center;
+  margin-bottom:2px;
+  min-height:0;
+  overflow:hidden;
+}
+#turn-info{flex:0 0 auto;font-size:calc(clamp(8px,.85vw,11px) * var(--ui-scale));color:#9abb9a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* History box — fixed height, internal scroll only */
+#history-box{
+  flex:1 1 0;
+  padding:calc(clamp(5px,.8vh,10px) * var(--ui-scale)) calc(clamp(8px,1.2vw,14px) * var(--ui-scale));
+  overflow-y:auto;   /* scrollable */
+  min-width:0;
+  display:flex;flex-direction:column;
+}
+#history-box h3{
+  font-size:calc(clamp(8px,.85vw,11px) * var(--ui-scale));color:#6a9a7a;text-transform:uppercase;
+  letter-spacing:.7px;margin-bottom:3px;
+  position:sticky;top:0;background:#040d07;padding-bottom:2px;flex-shrink:0;
+}
+#history-inner{
+  flex:1 1 0;
+  overflow-y:auto;
+  min-height:0;
+}
+.le{font-size:calc(clamp(8px,.8vw,11px) * var(--ui-scale));color:#5a8a6a;line-height:1.65}
+.le.hl{color:#f0c030}
+
+/* ── Raise slider row ─────────────────────────── */
+#raise-row{
+  display:flex;align-items:center;gap:calc(clamp(6px,.8vw,12px) * var(--ui-scale));
+  padding:calc(clamp(4px,.5vh,7px) * var(--ui-scale)) calc(clamp(8px,1.2vw,16px) * var(--ui-scale));
+  border-bottom:1px solid #122018;
+  flex-shrink:0;
+}
+#raise-row label{font-size:calc(clamp(9px,.9vw,12px) * var(--ui-scale));color:#7a9a80;white-space:nowrap}
+#bet-slider{flex:1;accent-color:#3a7acc;cursor:pointer}
+#bet-custom{
+  width:calc(clamp(52px,4.5vw,72px) * var(--ui-scale));padding:3px 6px;
+  background:#0f2015;border:1px solid #2a6040;border-radius:5px;
+  color:#f0c030;font-size:calc(clamp(10px,1.1vw,14px) * var(--ui-scale));font-weight:700;
+  text-align:center;font-family:Georgia,serif;
+}
+#bet-custom:focus{outline:none;border-color:#f0c030}
+
+/* ── Action buttons ───────────────────────────── */
+#action-btns{
+  display:flex;gap:calc(clamp(6px,.8vw,12px) * var(--ui-scale));
+  padding:calc(clamp(6px,.7vh,11px) * var(--ui-scale)) calc(clamp(8px,1.2vw,16px) * var(--ui-scale));
+  justify-content:center;flex-wrap:wrap;flex-shrink:0;
+}
+.abtn{
+  padding:calc(clamp(9px,1.1vh,15px) * var(--ui-scale)) calc(clamp(14px,1.8vw,30px) * var(--ui-scale));
+  border-radius:7px;border:none;
+  font-size:calc(clamp(12px,1.3vw,17px) * var(--ui-scale));font-weight:700;cursor:pointer;
+  font-family:Georgia,serif;letter-spacing:.3px;
+  transition:filter .12s,transform .1s;
+  min-width:calc(clamp(70px,7vw,110px) * var(--ui-scale));
+}
+.abtn:hover{filter:brightness(1.15)}
+.abtn:active{transform:scale(.96)}
+.abtn-fold{background:#c0120e;color:#fff}
+.abtn-check{background:#157a1a;color:#fff}
+.abtn-call{background:#1a7a30;color:#fff}
+.abtn-raise{background:#1840a0;color:#fff}
+.abtn-allin{background:#111111;color:#fff;border:2px solid #555}
+.abtn-next{background:#3a2a00;color:#f0c030;border:2px solid #7a5a00}
+
+/* ── Big cards (turn-box display) ─────────────── */
+.bc{
+  height:100%;
+  aspect-ratio:34/48;
+  max-width:42%;
+  border-radius:6px;border:2px solid #bbb;background:#fff;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  font-weight:700;position:relative;flex-shrink:1;
+}
+.bc .brank{font-size:calc(clamp(11px,1.3vw,18px) * var(--ui-scale));line-height:1}
+.bc .bsuit{font-size:calc(clamp(13px,1.5vw,21px) * var(--ui-scale));line-height:1.1}
+.bc.red .brank,.bc.red .bsuit{color:#cc1111}
+.bc.black .brank,.bc.black .bsuit{color:#111}
+.bc .btl{position:absolute;top:3px;left:4px;font-size:calc(clamp(6px,.6vw,9px) * var(--ui-scale));line-height:1.1}
+.bc .bbr{position:absolute;bottom:3px;right:4px;font-size:calc(clamp(6px,.6vw,9px) * var(--ui-scale));line-height:1.1;transform:rotate(180deg)}
+
+/* ── Winner overlay ───────────────────────────── */
+#winner-ov{
+  position:fixed;inset:0;background:rgba(0,0,0,.93);
+  display:none;align-items:center;justify-content:center;
+  flex-direction:column;gap:clamp(7px,1vh,14px);z-index:300;
+  padding:16px;overflow-y:auto;
+}
+#winner-ov.show{display:flex}
+#wt{font-size:clamp(18px,2.4vw,30px);font-weight:700;color:#f0c030;text-align:center;text-shadow:0 2px 8px rgba(0,0,0,.7)}
+#ws{font-size:clamp(12px,1.3vw,17px);color:#e8d5a3;text-align:center}
+
+/* showdown community cards */
+#sd-community{display:flex;gap:clamp(5px,.6vw,9px);justify-content:center;flex-wrap:wrap;margin:2px 0}
+.sd-cc{
+  border-radius:6px;border:2px solid #bbb;background:#fff;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  font-weight:700;position:relative;flex-shrink:0;
+  width:clamp(32px,3.5vw,48px);height:clamp(46px,5vw,68px);
+}
+.sd-cc.win-card{
+  width:clamp(40px,4.3vw,58px);height:clamp(56px,6.1vw,80px);
+  border-color:#f0c030;box-shadow:0 0 10px 3px rgba(240,192,48,.55);z-index:2;
+}
+.sd-cc.ph{background:rgba(255,255,255,.07);border:2px dashed rgba(255,255,255,.2)}
+.sd-cc .sdc-tl{position:absolute;top:2px;left:3px;font-size:clamp(6px,.6vw,9px);line-height:1.15}
+.sd-cc .sdc-br{position:absolute;bottom:2px;right:3px;font-size:clamp(6px,.6vw,9px);line-height:1.15;transform:rotate(180deg)}
+.sd-cc .sdc-suit{font-size:clamp(11px,1.3vw,18px);line-height:1}
+.sd-cc .sdc-rank{font-size:clamp(9px,1vw,14px);line-height:1}
+.sd-cc.red .sdc-tl,.sd-cc.red .sdc-br,.sd-cc.red .sdc-suit,.sd-cc.red .sdc-rank{color:#cc1111}
+.sd-cc.black .sdc-tl,.sd-cc.black .sdc-br,.sd-cc.black .sdc-suit,.sd-cc.black .sdc-rank{color:#111}
+
+/* showdown players */
+.rrow{display:flex;gap:clamp(8px,1.2vw,16px);flex-wrap:wrap;justify-content:center}
+.rp{text-align:center;padding:5px 8px;border-radius:6px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08)}
+.rpn{font-size:clamp(9px,.9vw,12px);color:#9abba0;margin-bottom:4px}
+.rpc{display:flex;gap:clamp(3px,.4vw,6px);justify-content:center}
+.rv-card{
+  width:clamp(34px,3.6vw,52px);height:clamp(48px,5.2vw,73px);
+  border-radius:6px;border:2px solid #bbb;background:#fff;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  font-weight:700;position:relative;flex-shrink:0;
+}
+.rv-card.red .rv-rank,.rv-card.red .rv-suit{color:#cc1111}
+.rv-card.black .rv-rank,.rv-card.black .rv-suit{color:#111}
+.rv-card .rv-tl{position:absolute;top:3px;left:4px;font-size:clamp(6px,.6vw,9px);line-height:1.1}
+.rv-card .rv-br{position:absolute;bottom:3px;right:4px;font-size:clamp(6px,.6vw,9px);line-height:1.1;transform:rotate(180deg)}
+.rv-card .rv-rank{font-size:clamp(11px,1.3vw,18px);line-height:1}
+.rv-card .rv-suit{font-size:clamp(13px,1.5vw,21px);line-height:1.1}
+.rp.loser .rv-card{filter:grayscale(10%) brightness(.9)}
+.rp.loser .rpn{color:#6a7a6a}
+.rp.winner-p{border-color:#f0c030;background:rgba(240,192,48,.07)}
+.rp.winner-p .rpn{color:#f0c030;font-weight:700}
+
+/* ── Post-hand review panel ───────────────────── */
+#review-panel{
+  margin-top:6px;width:min(94vw,640px);
+  background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.1);
+  border-radius:8px;padding:clamp(8px,1.2vh,14px) clamp(10px,1.5vw,18px);
+  max-height:34vh;overflow-y:auto;
+}
+#review-panel h4{font-size:clamp(10px,1vw,13px);color:#6a9a7a;text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px}
+.review-row{
+  display:flex;align-items:center;gap:clamp(6px,1vw,14px);
+  padding:4px 0;border-bottom:1px solid rgba(255,255,255,.06);
+  font-size:clamp(9px,.9vw,12px);flex-wrap:wrap;
+}
+.review-row:last-child{border-bottom:none}
+.review-street{color:#9abba0;min-width:48px;font-weight:700;text-transform:uppercase;font-size:clamp(8px,.8vw,10px)}
+.review-eq{display:flex;gap:8px;flex-wrap:wrap}
+.review-eq span{color:#e8d5a3}
+.review-eq b{color:#f0c030}
+.review-note{color:#7a9a80;font-size:clamp(8px,.85vw,11px);font-style:italic}
+
+/* ── Pot odds quiz mode ────────────────────────── */
+#quiz-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.88);
+  display:none;align-items:center;justify-content:center;z-index:400;padding:16px;
+}
+#quiz-overlay.show{display:flex}
+#quiz-box{
+  background:#0b1f14;border:2px solid #f0c030;border-radius:10px;
+  padding:clamp(16px,2.5vh,28px) clamp(18px,2.5vw,32px);
+  max-width:min(92vw,460px);text-align:center;
+}
+#quiz-box h3{color:#f0c030;font-size:clamp(14px,1.6vw,20px);margin-bottom:10px}
+#quiz-question{color:#e8d5a3;font-size:clamp(12px,1.3vw,16px);margin-bottom:14px;line-height:1.5}
+#quiz-input-row{display:flex;gap:8px;justify-content:center;align-items:center;margin-bottom:12px}
+#quiz-answer{
+  width:90px;padding:8px;border-radius:6px;border:1px solid #3a6a4a;
+  background:#0f2015;color:#f0c030;font-size:16px;text-align:center;font-weight:700;font-family:Georgia,serif;
+}
+#quiz-feedback{font-size:clamp(11px,1.2vw,14px);margin-bottom:10px;min-height:20px;font-weight:700}
+#quiz-feedback.correct{color:#7adb84}
+#quiz-feedback.wrong{color:#e0726a}
+.quiz-btn{
+  padding:9px 22px;border-radius:7px;border:none;background:#1840a0;color:#fff;
+  font-size:13px;font-weight:700;cursor:pointer;font-family:Georgia,serif;margin:0 4px;
+}
+.quiz-btn:hover{filter:brightness(1.15)}
+.quiz-btn.secondary{background:#2a5230}
+
+/* ── Range visualizer grid ────────────────────── */
+#range-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.88);
+  display:none;align-items:center;justify-content:center;z-index:400;padding:16px;
+}
+#range-overlay.show{display:flex}
+#range-box{
+  background:#0b1f14;border:2px solid #3a8a4a;border-radius:10px;
+  padding:clamp(12px,2vh,22px);max-width:min(95vw,640px);max-height:92vh;overflow-y:auto;
+}
+#range-box h3{color:#9ef0a8;font-size:clamp(13px,1.5vw,18px);margin-bottom:8px;text-align:center}
+#range-pos-select{
+  display:flex;gap:5px;flex-wrap:wrap;justify-content:center;margin-bottom:10px;
+}
+.range-pos-btn{
+  padding:4px 10px;border-radius:5px;border:1px solid #3a5a8a;background:#0f1a25;
+  color:#8fb0d0;font-size:11px;cursor:pointer;font-family:Georgia,serif;
+}
+.range-pos-btn.sel{background:#2a5a3a;border-color:#3a8a4a;color:#c0f0c8}
+#range-grid{
+  display:grid;grid-template-columns:repeat(13,1fr);gap:2px;
+  width:min(86vw,560px);margin:0 auto;
+}
+.range-cell{
+  aspect-ratio:1;display:flex;align-items:center;justify-content:center;
+  font-size:clamp(7px,1.1vw,11px);font-weight:700;border-radius:3px;color:#fff;
+}
+.range-raise{background:#c0120e}
+.range-call{background:#1a7a30}
+.range-fold{background:#1a2a22;color:#4a6a52}
+#range-legend{display:flex;gap:14px;justify-content:center;margin-top:10px;font-size:11px;color:#9abba0}
+.legend-sw{display:inline-block;width:11px;height:11px;border-radius:2px;margin-right:4px;vertical-align:middle}
+.btn-close-overlay{
+  display:block;margin:14px auto 0;padding:8px 22px;border-radius:7px;border:none;
+  background:#3a2a00;color:#f0c030;border:2px solid #7a5a00;font-size:13px;cursor:pointer;font-family:Georgia,serif;
+}
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- Settings -->
+<div id="settings-bar">
+  <label>Stacks: $<input type="number" id="buy-in-input" value="300" min="50" max="50000" step="50"></label>
+  <label>Seats: <input type="number" id="seat-count-input" value="9" min="2" max="9"></label>
+  <button class="btn-set" onclick="applySettings()">Apply / New Game</button>
+  <span id="phase-pill">Pre-flop</span>
+  <span class="blinds-label">Blinds $1 / $2</span>
+  <span id="hand-counter"></span>
+  <button class="btn-toggle" id="btn-quiz-toggle" onclick="toggleQuizMode()">Quiz Mode: Off</button>
+  <button class="btn-toggle" onclick="openRangeChart()">Range Chart</button>
+</div>
+
+<!-- Stats strip: pot odds, equity, outs, SPR, position, grade -->
+<div id="stats-strip">
+  <span class="stat-chip"><span class="pos-badge" id="pos-badge">—</span></span>
+  <span class="stat-chip" id="grade-chip" style="display:none"><span class="grade-badge" id="grade-badge">—</span></span>
+  <span class="stat-chip has-tip tip-left" data-tooltip="The ratio of the current pot size to the cost of calling a bet. Bigger pot odds (e.g. 5:1) mean you risk less relative to what you can win, so you need less equity to justify calling.">
+    <span class="stat-label">Pot Odds</span><span class="stat-val" id="stat-potodds">—</span>
+  </span>
+  <span class="stat-chip has-tip" data-tooltip="The minimum chance of winning the hand you need to have for a call to break even, based on pot odds: call amount divided by the pot after you call. If your actual equity is below this, calling loses money long-term.">
+    <span class="stat-label">Need Equity</span><span class="stat-val" id="stat-reqeq">—</span>
+  </span>
+  <span class="stat-chip has-tip" data-tooltip="Your estimated probability of winning the hand right now against the remaining live opponents, simulated across many random run-outs of the remaining cards.">
+    <span class="stat-label">Your Equity</span><span class="stat-val" id="stat-myeq">—</span>
+  </span>
+  <span class="stat-chip has-tip" data-tooltip="The unseen cards that would improve your hand to likely the best hand (completing a flush, straight, or upgrading a pair/trips). More outs means a better chance to improve on the next card.">
+    <span class="stat-label">Outs</span><span class="stat-val" id="stat-outs-text">—</span><span id="stat-outs-cards" class="outs-cards"></span>
+  </span>
+  <span class="stat-chip has-tip tip-right" data-tooltip="Stack-to-Pot Ratio: the effective remaining stack divided by the pot size. A low SPR (under ~4) means you're effectively committed to the pot; a high SPR means more room for postflop maneuvering.">
+    <span class="stat-label">SPR</span><span class="stat-val" id="stat-spr">—</span>
+  </span>
+</div>
+
+<!-- Table -->
+<div id="table-section">
+  <div id="table-wrap">
+    <div id="table-felt">
+      <div id="pot-display">Pot: $0</div>
+      <div id="community"></div>
+      <div id="seats-container"></div>
+    </div>
+    <div id="scale-row">
+      <label for="table-scale-slider">Table Size</label>
+      <input type="range" id="table-scale-slider" min="0.6" max="2.2" step="0.05" value="1">
+      <span id="scale-val">100%</span>
+      <span class="scale-divider"></span>
+      <label for="ui-scale-slider">Text/UI Size</label>
+      <input type="range" id="ui-scale-slider" min="0.7" max="2" step="0.05" value="1">
+      <span id="ui-scale-val">100%</span>
+    </div>
+  </div>
+</div>
+
+<!-- Bottom panel — fixed, never grows -->
+<div id="bottom-panel">
+  <div id="info-row">
+
+    <!-- Left: current seat cards — static width, no scroll -->
+    <div id="turn-box">
+      <h3>Current Seat</h3>
+      <div id="cur-seat">—</div>
+      <div id="turn-cards"></div>
+      <div id="turn-info"></div>
+    </div>
+
+    <!-- Right: history — scrollable internally, header sticky -->
+    <div id="history-box">
+      <h3>Hand History</h3>
+      <div id="history-inner"></div>
+    </div>
+
+  </div>
+
+  <!-- Raise row -->
+  <div id="raise-row">
+    <label>Raise to:</label>
+    <input type="range" id="bet-slider" min="4" max="100" value="4" step="1">
+    <input type="number" id="bet-custom" value="4" min="4" max="300">
+  </div>
+
+  <!-- Action buttons -->
+  <div id="action-btns">
+    <button class="abtn abtn-fold"  onclick="playerAction('fold')">Fold</button>
+    <button class="abtn abtn-check" id="btn-check" onclick="playerAction('check')">Check</button>
+    <button class="abtn abtn-call"  id="btn-call"  onclick="playerAction('call')">Call $2</button>
+    <button class="abtn abtn-raise" onclick="playerAction('raise')">Raise</button>
+    <button class="abtn abtn-allin" onclick="playerAction('allin')">All-In</button>
+  </div>
+</div>
+
+</div><!-- #app -->
+
+<!-- Winner overlay -->
+<div id="winner-ov">
+  <div id="wt"></div>
+  <div id="ws"></div>
+  <div id="sd-community"></div>
+  <div class="rrow" id="reveal-cards"></div>
+  <div id="review-panel">
+    <h4>Post-Hand Review — Equity By Street</h4>
+    <div id="review-rows"></div>
+  </div>
+  <button class="abtn abtn-next" onclick="nextHand()" style="margin-top:6px">Next Hand ▶</button>
+</div>
+
+<!-- Pot odds quiz overlay -->
+<div id="quiz-overlay">
+  <div id="quiz-box">
+    <h3>Pot Odds Quiz</h3>
+    <div id="quiz-question"></div>
+    <div id="quiz-input-row">
+      <input type="number" id="quiz-answer" placeholder="%">
+      <span style="color:#9abba0">%</span>
+    </div>
+    <div id="quiz-feedback"></div>
+    <div>
+      <button class="quiz-btn" onclick="submitQuizAnswer()">Submit</button>
+      <button class="quiz-btn secondary" onclick="dismissQuiz()">Skip</button>
+    </div>
+  </div>
+</div>
+
+<!-- Range chart overlay -->
+<div id="range-overlay">
+  <div id="range-box">
+    <h3>Preflop Opening Range (toggle position)</h3>
+    <div id="range-pos-select"></div>
+    <div id="range-grid"></div>
+    <div id="range-legend">
+      <span><span class="legend-sw" style="background:#c0120e"></span>Raise</span>
+      <span><span class="legend-sw" style="background:#1a7a30"></span>Call</span>
+      <span><span class="legend-sw" style="background:#1a2a22"></span>Fold</span>
+    </div>
+    <button class="btn-close-overlay" onclick="closeRangeChart()">Close</button>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════
+//  CONSTANTS
+// ═══════════════════════════════════════════════
+const SUITS=['♠','♥','♦','♣'];
+const RANKS=['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
+const RV={'2':2,'3':3,'4':4,'5':5,'6':6,'7':7,'8':8,'9':9,'10':10,'J':11,'Q':12,'K':13,'A':14};
+const RED=new Set(['♥','♦']);
+function isRed(s){return RED.has(s)}
+
+// ═══════════════════════════════════════════════
+//  DECK
+// ═══════════════════════════════════════════════
+function makeDeck(){
+  const d=[];
+  for(const s of SUITS) for(const r of RANKS) d.push({rank:r,suit:s,value:RV[r]});
+  return d;
+}
+function shuffle(d){
+  for(let i=d.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [d[i],d[j]]=[d[j],d[i]];
+  }
+  return d;
+}
+
+// ═══════════════════════════════════════════════
+//  POSITION NAMES (relative to dealer, by seat count)
+// ═══════════════════════════════════════════════
+function getPositionName(seatIdx,dIdx,n){
+  // Heads-up special case: dealer posts BB and acts second preflop;
+  // the other seat posts SB and acts first.
+  if(n===2){
+    return seatIdx===dIdx ? 'BTN/BB' : 'SB';
+  }
+  // offset 0 = dealer/BTN, 1 = SB, 2 = BB, 3 = UTG, ... going forward
+  const offset=(seatIdx-dIdx+n)%n;
+  if(offset===0) return 'BTN';
+  if(offset===1) return 'SB';
+  if(offset===2) return 'BB';
+  // remaining seats are UTG, UTG+1, ... up to the seat right before BTN (CO)
+  const remaining=n-3; // seats after BB and before BTN
+  const k=offset-3;    // 0-indexed position among the "middle" seats
+  if(remaining<=0) return 'UTG';
+  if(k===remaining-1) return 'CO';
+  if(remaining>=2 && k===remaining-2) return 'HJ';
+  if(k===0) return 'UTG';
+  return 'UTG+'+k;
+}
+
+// ═══════════════════════════════════════════════
+//  PREFLOP HAND GRADING
+// ═══════════════════════════════════════════════
+function gradeStartingHand(hole){
+  if(!hole||hole.length<2) return {grade:'—',label:''};
+  const [a,b]=hole;
+  const hi=Math.max(a.value,b.value), lo=Math.min(a.value,b.value);
+  const suited=a.suit===b.suit;
+  const pair=a.value===b.value;
+  const gap=hi-lo;
+  let category;
+  if(pair) category=hi>=10?'Big pair':(hi>=7?'Mid pair':'Small pair');
+  else if(hi===14 && lo>=10) category='Broadway Ace';
+  else if(hi>=11 && lo>=10) category='Broadway';
+  else if(suited && gap<=1 && lo>=6) category='Suited connector';
+  else if(suited && gap<=2) category='Suited gapper';
+  else if(hi===14) category='Ace-x';
+  else category='Off-suit low';
+
+  let grade;
+  if(pair && hi>=11) grade='Premium';                          // QQ+
+  else if(pair && hi>=8) grade='Strong';                        // 88-JJ
+  else if(hi===14 && lo===13) grade='Premium';                  // AK
+  else if(hi===14 && lo===12 && suited) grade='Premium';        // AQs
+  else if(hi===14 && lo>=11) grade='Strong';                    // AJ, AQo
+  else if(suited && gap<=1 && lo>=9) grade='Strong';             // suited connectors T+
+  else if(pair) grade='Playable';                                // small pairs
+  else if(hi>=12 && lo>=10) grade='Playable';                    // KQ, KJ, QJ type
+  else if(suited && gap<=2) grade='Playable';                    // suited gappers
+  else if(hi===14) grade='Marginal';                             // weak ace
+  else if(suited && hi>=10) grade='Marginal';
+  else grade='Trash';
+
+  return {grade,label:category};
+}
+
+// ═══════════════════════════════════════════════
+//  HAND EVALUATION (7-card best-of via combos) — shared by equity calc
+// ═══════════════════════════════════════════════
+function evalBest(cards7){
+  let best={rank:-1,tb:0};
+  for(const combo of getCombinations(cards7,5)){
+    const s=scoreCombo(combo);
+    if(s.rank>best.rank||(s.rank===best.rank&&s.tb>best.tb)) best=s;
+  }
+  return best;
+}
+function compareScores(a,b){
+  if(a.rank!==b.rank) return a.rank-b.rank;
+  return a.tb-b.tb;
+}
+
+// ═══════════════════════════════════════════════
+//  MONTE CARLO EQUITY CALCULATOR
+//  heroHole: 2 cards. oppCount: number of live opponents.
+//  community: known board (0,3,4,5 cards). Returns {win,tie,lose} as %.
+// ═══════════════════════════════════════════════
+function calcEquity(heroHole,oppCount,community,trials){
+  if(oppCount<=0) return {win:100,tie:0,lose:0};
+  trials=trials||400;
+  const usedKeys=new Set([...heroHole,...community].map(cardKey));
+  const fullDeck=makeDeck().filter(c=>!usedKeys.has(cardKey(c)));
+  let wins=0,ties=0,losses=0;
+
+  for(let t=0;t<trials;t++){
+    const pool=fullDeck.slice();
+    shuffle(pool);
+    let p=0;
+    // deal opponent hole cards
+    const opps=[];
+    for(let o=0;o<oppCount;o++){ opps.push([pool[p++],pool[p++]]); }
+    // complete the board
+    const board=community.slice();
+    while(board.length<5){ board.push(pool[p++]); }
+
+    const heroScore=evalBest([...heroHole,...board]);
+    let bestOppScore=null;
+    for(const oh of opps){
+      const s=evalBest([...oh,...board]);
+      if(bestOppScore===null||compareScores(s,bestOppScore)>0) bestOppScore=s;
+    }
+    const cmp=compareScores(heroScore,bestOppScore);
+    if(cmp>0) wins++;
+    else if(cmp===0) ties++;
+    else losses++;
+  }
+  return {
+    win:+(wins/trials*100).toFixed(1),
+    tie:+(ties/trials*100).toFixed(1),
+    lose:+(losses/trials*100).toFixed(1)
+  };
+}
+
+// ═══════════════════════════════════════════════
+//  OUTS COUNTER — counts cards that improve hero to a better hand
+// ═══════════════════════════════════════════════
+// ═══════════════════════════════════════════════
+//  OUTS COUNTER — standard poker definition: cards that complete
+//  a flush draw, straight draw, or upgrade an existing made hand
+//  (pair -> trips/two pair, trips -> quads, two pair -> trips/full house).
+//  Deliberately excludes "backing into a brand-new low pair" since
+//  that's not how outs are counted at the table.
+// ═══════════════════════════════════════════════
+function countOuts(heroHole,community){
+  if(community.length<3||community.length>=5) return {outs:0,detail:[]};
+  const usedKeys=new Set([...heroHole,...community].map(cardKey));
+  const fullDeck=makeDeck().filter(c=>!usedKeys.has(cardKey(c)));
+
+  const allCards=[...heroHole,...community];
+  const baseBest=evalBest(allCards);
+  const heroHasMadeHand=baseBest.rank>=1; // already has a pair or better
+
+  const outSet=new Set();
+
+  // ── Flush draw: 4 of hero's 5 known cards (using both hole cards) share a suit ──
+  const suitCounts={};
+  allCards.forEach(c=>{ suitCounts[c.suit]=(suitCounts[c.suit]||0)+1; });
+  const heroSuits=[heroHole[0].suit,heroHole[1].suit];
+  for(const s of new Set(heroSuits)){
+    if(suitCounts[s]===4){
+      fullDeck.forEach(c=>{ if(c.suit===s) outSet.add(cardKey(c)); });
+    }
+  }
+
+  // ── Straight draw: find ranks that complete a 5-in-a-row using hero's cards ──
+  // Build set of distinct values present (hero + board), test each candidate card
+  // to see if adding it creates a straight that hero's hole cards participate in.
+  const presentVals=new Set(allCards.map(c=>c.value));
+  fullDeck.forEach(c=>{
+    if(outSet.has(cardKey(c))) return; // already counted as flush out
+    const trialVals=new Set(presentVals); trialVals.add(c.value);
+    if(formsStraightUsingHero(trialVals,heroHole)) outSet.add(cardKey(c));
+  });
+
+  // ── Made-hand upgrades: pair -> trips/two pair, trips -> quads, two pair -> full house ──
+  // Only counted if hero already has a pair or better (drawing to improve a made hand).
+  if(heroHasMadeHand){
+    fullDeck.forEach(c=>{
+      if(outSet.has(cardKey(c))) return;
+      const newScore=evalBest([...allCards,c]);
+      if(newScore.rank>baseBest.rank) outSet.add(cardKey(c));
+    });
+  }
+
+  const detail=fullDeck.filter(c=>outSet.has(cardKey(c)));
+  return {outs:detail.length,detail};
+}
+
+// Checks whether adding the candidate value to the known set of values
+// creates a 5-card straight, AND that straight requires at least one of
+// hero's hole card values to complete (so board-only straights don't count
+// as "outs" hero needs — they'd make the straight regardless).
+function formsStraightUsingHero(valSet,heroHole){
+  const heroVals=new Set(heroHole.map(c=>c.value));
+  const vals=Array.from(valSet);
+  // wheel: treat Ace as 1 too
+  if(valSet.has(14)) vals.push(1);
+  const sorted=Array.from(new Set(vals)).sort((a,b)=>a-b);
+  for(let i=0;i<=sorted.length-5;i++){
+    let consecutive=true;
+    for(let k=0;k<4;k++){ if(sorted[i+k+1]-sorted[i+k]!==1){ consecutive=false; break; } }
+    if(consecutive){
+      const straightVals=sorted.slice(i,i+5);
+      // does this straight include a value only achievable via hero's hole cards?
+      const usesHero=straightVals.some(v=>heroVals.has(v)||(v===1&&heroVals.has(14)));
+      if(usesHero) return true;
+    }
+  }
+  return false;
+}
+
+// ═══════════════════════════════════════════════
+//  EQUITY SNAPSHOT — records each active player's win/tie equity
+//  at the current street, for the post-hand review panel.
+//  Uses a multi-way approximation: for each player, compute their
+//  equity against the field of all other active players combined.
+// ═══════════════════════════════════════════════
+function recordStreetEquity(streetLabel){
+  const act=activePlayers();
+  if(act.length<2){ return; } // nothing to compare once only one player remains
+  const perPlayer=act.map(p=>{
+    const seatIdx=players.indexOf(p);
+    const eq=calcEquity(p.hole,act.length-1,communityCards,300);
+    return {seatIdx,name:p.name,win:eq.win,tie:eq.tie};
+  });
+  equityHistory.push({street:streetLabel,perPlayer});
+}
+
+// ═══════════════════════════════════════════════
+//  SEAT LAYOUTS
+// ═══════════════════════════════════════════════
+const LAYOUTS={
+  2:[{top:'82%',left:'50%'},{top:'12%',left:'50%'}],
+  3:[{top:'82%',left:'50%'},{top:'28%',left:'13%'},{top:'28%',left:'87%'}],
+  4:[{top:'82%',left:'50%'},{top:'50%',left:'5%'},{top:'12%',left:'50%'},{top:'50%',left:'95%'}],
+  5:[{top:'85%',left:'50%'},{top:'62%',left:'8%'},{top:'18%',left:'22%'},{top:'18%',left:'78%'},{top:'62%',left:'92%'}],
+  6:[{top:'88%',left:'50%'},{top:'70%',left:'10%'},{top:'22%',left:'8%'},{top:'8%',left:'50%'},{top:'22%',left:'92%'},{top:'70%',left:'90%'}],
+  7:[{top:'88%',left:'50%'},{top:'70%',left:'10%'},{top:'28%',left:'4%'},{top:'8%',left:'30%'},{top:'8%',left:'70%'},{top:'28%',left:'96%'},{top:'70%',left:'90%'}],
+  8:[{top:'88%',left:'50%'},{top:'72%',left:'12%'},{top:'38%',left:'3%'},{top:'10%',left:'25%'},{top:'6%',left:'50%'},{top:'10%',left:'75%'},{top:'38%',left:'97%'},{top:'72%',left:'88%'}],
+  9:[{top:'88%',left:'50%'},{top:'72%',left:'14%'},{top:'42%',left:'3%'},{top:'14%',left:'18%'},{top:'5%',left:'40%'},{top:'5%',left:'60%'},{top:'14%',left:'82%'},{top:'42%',left:'97%'},{top:'72%',left:'86%'}],
+};
+
+// ═══════════════════════════════════════════════
+//  GAME STATE
+// ═══════════════════════════════════════════════
+let deck=[], players=[], pot=0, communityCards=[], phase='preflop';
+let dealerIdx=0, currentIdx=0, currentBet=0, numSeats=9, buyIn=300, handNum=0;
+let sbIdx=0, bbIdx=0;
+let actedThisRound=[];
+
+// new feature state
+let quizModeOn=false;
+let pendingQuiz=null;          // {requiredEquity, toCall, pot, seatIdx}
+let equityHistory=[];          // [{street, perPlayer:[{seatIdx,name,win,tie}]}]
+let rangeChartPos='BTN';       // currently selected position in range viewer
+
+// ═══════════════════════════════════════════════
+//  INIT / START
+// ═══════════════════════════════════════════════
+function initGame(){
+  numSeats=Math.max(2,Math.min(9,parseInt(document.getElementById('seat-count-input').value)||9));
+  buyIn=Math.max(10,parseInt(document.getElementById('buy-in-input').value)||300);
+  players=[];
+  for(let i=0;i<numSeats;i++){
+    players.push({name:'Seat '+(i+1),stack:buyIn,hole:[],folded:false,allIn:false,bet:0});
+  }
+  dealerIdx=0; handNum=0;
+  clearLog(); renderSeats(); startHand();
+}
+
+function startHand(){
+  handNum++;
+  deck=shuffle(makeDeck());
+  communityCards=[]; pot=0; currentBet=0; phase='preflop';
+  players.forEach(p=>{p.hole=[];p.folded=false;p.allIn=false;p.bet=0});
+  document.getElementById('winner-ov').classList.remove('show');
+  document.getElementById('hand-counter').textContent='Hand #'+handNum;
+  equityHistory=[];
+
+  sbIdx=(dealerIdx+1)%numSeats;
+  bbIdx=(dealerIdx+2)%numSeats;
+  postBlind(sbIdx,1);
+  postBlind(bbIdx,2);
+  currentBet=2;
+
+  for(let i=0;i<2;i++) players.forEach(p=>p.hole.push(deck.pop()));
+
+  currentIdx=(dealerIdx+3)%numSeats;
+  actedThisRound=new Array(numSeats).fill(false);
+  skipFolded();
+
+  log('── Hand #'+handNum+' ──',true);
+  log('Dealer: '+players[dealerIdx].name+' | SB: '+players[sbIdx].name+' | BB: '+players[bbIdx].name);
+  recordStreetEquity('Preflop');
+  renderAll(); updateUI();
+}
+
+function postBlind(idx,amt){
+  const p=players[idx];
+  const a=Math.min(amt,p.stack);
+  p.stack-=a; p.bet=a; pot+=a;
+}
+
+function skipFolded(){
+  let tries=0;
+  while((players[currentIdx].folded||players[currentIdx].allIn)&&tries<numSeats){
+    currentIdx=(currentIdx+1)%numSeats; tries++;
+  }
+}
+
+// ═══════════════════════════════════════════════
+//  HELPERS
+// ═══════════════════════════════════════════════
+function activePlayers(){return players.filter(p=>!p.folded)}
+function activeNotAllIn(){return players.filter(p=>!p.folded&&!p.allIn)}
+
+function isBettingRoundOver(){
+  const act=activePlayers();
+  if(act.length<=1) return true;
+  const acting=activeNotAllIn();
+  if(acting.length===0) return true;
+  return acting.every(p=>{
+    const i=players.indexOf(p);
+    return actedThisRound[i] && p.bet===currentBet;
+  });
+}
+
+// ═══════════════════════════════════════════════
+//  PLAYER ACTION
+// ═══════════════════════════════════════════════
+function playerAction(action){
+  const p=players[currentIdx];
+  const toCall=Math.max(0,currentBet-p.bet);
+
+  if(action==='fold'){
+    p.folded=true;
+    actedThisRound[currentIdx]=true;
+    log(p.name+' folds');
+  } else if(action==='check'){
+    if(toCall>0){log('⚠ Cannot check — must call or fold.');return}
+    actedThisRound[currentIdx]=true;
+    log(p.name+' checks');
+  } else if(action==='call'){
+    const a=Math.min(toCall,p.stack);
+    p.stack-=a; p.bet+=a; pot+=a;
+    if(p.stack===0) p.allIn=true;
+    actedThisRound[currentIdx]=true;
+    log(p.name+' calls $'+a);
+  } else if(action==='raise'){
+    const rTo=parseInt(document.getElementById('bet-custom').value);
+    if(rTo<=currentBet){log('⚠ Raise must exceed current bet ($'+currentBet+').');return}
+    const a=Math.min(rTo-p.bet,p.stack);
+    p.stack-=a; p.bet+=a; pot+=a;
+    currentBet=p.bet;
+    if(p.stack===0) p.allIn=true;
+    actedThisRound=actedThisRound.map((_,i)=>i===currentIdx);
+    log(p.name+' raises to $'+p.bet);
+  } else if(action==='allin'){
+    const a=p.stack;
+    p.stack=0; p.bet+=a; pot+=a;
+    if(p.bet>currentBet){
+      currentBet=p.bet;
+      actedThisRound=actedThisRound.map((_,i)=>i===currentIdx);
+    } else {
+      actedThisRound[currentIdx]=true;
+    }
+    p.allIn=true;
+    log(p.name+' goes ALL-IN for $'+p.bet+'!',true);
+  }
+
+  if(activePlayers().length===1){endHand();return}
+  advanceTurn();
+}
+
+function advanceTurn(){
+  currentIdx=(currentIdx+1)%numSeats;
+  skipFolded();
+  if(isBettingRoundOver()){advancePhase();return}
+  renderAll(); updateUI();
+}
+
+// ═══════════════════════════════════════════════
+//  PHASE ADVANCE
+// ═══════════════════════════════════════════════
+function advancePhase(){
+  players.forEach(p=>p.bet=0);
+  currentBet=0;
+  actedThisRound=new Array(numSeats).fill(false);
+
+  currentIdx=(dealerIdx+1)%numSeats;
+  skipFolded();
+
+  if(phase==='preflop'){
+    phase='flop';
+    communityCards.push(deck.pop(),deck.pop(),deck.pop());
+    log('── Flop: '+communityCards.map(c=>c.rank+c.suit).join(' ')+' ──',true);
+    recordStreetEquity('Flop');
+  } else if(phase==='flop'){
+    phase='turn';
+    communityCards.push(deck.pop());
+    log('── Turn: '+communityCards[3].rank+communityCards[3].suit+' ──',true);
+    recordStreetEquity('Turn');
+  } else if(phase==='turn'){
+    phase='river';
+    communityCards.push(deck.pop());
+    log('── River: '+communityCards[4].rank+communityCards[4].suit+' ──',true);
+    recordStreetEquity('River');
+  } else if(phase==='river'){
+    endHand(); return;
+  }
+
+  document.getElementById('phase-pill').textContent=phase.charAt(0).toUpperCase()+phase.slice(1);
+  renderAll();
+  if(isBettingRoundOver()){advancePhase();return}
+  updateUI();
+}
+
+// ═══════════════════════════════════════════════
+//  HAND EVALUATION
+// ═══════════════════════════════════════════════
+function endHand(){
+  const act=activePlayers();
+  let winner, handName=null, allScored=null;
+
+  if(act.length===1){
+    winner=act[0];
+  } else {
+    allScored=act.map(p=>({p,score:scoreHand(p.hole,communityCards)}));
+    allScored.sort((a,b)=>b.score.rank-a.score.rank||(b.score.tb-a.score.tb));
+    winner=allScored[0].p;
+    handName=allScored[0].score.name;
+  }
+
+  winner.stack+=pot;
+  log('★ '+winner.name+' wins $'+pot+(handName?' with '+handName:'')+'!',true);
+  players.forEach(p=>{if(p.stack===0) p.stack=buyIn});
+  dealerIdx=(dealerIdx+1)%numSeats;
+
+  showWinner(winner,handName,allScored);
+  renderAll();
+}
+
+function showWinner(winner,handName,scored){
+  document.getElementById('wt').textContent=winner.name+' Wins $'+pot+'!';
+  document.getElementById('ws').textContent=handName||'Last player standing';
+
+  // Find winning 5-card combo keys
+  let winCardKeys=new Set();
+  if(scored && communityCards.length>=3){
+    const winCards=getBestCombo(winner.hole,communityCards);
+    winCards.forEach(c=>winCardKeys.add(cardKey(c)));
+  }
+
+  // Community cards with highlights
+  const sdComm=document.getElementById('sd-community');
+  sdComm.innerHTML='';
+  communityCards.forEach(c=>{
+    const isWin=winCardKeys.has(cardKey(c));
+    const col=isRed(c.suit)?'red':'black';
+    const cls='sd-cc fu '+col+(isWin?' win-card':'');
+    sdComm.innerHTML+='<div class="'+cls+'">'
+      +'<div class="sdc-tl">'+c.rank+'<br>'+c.suit+'</div>'
+      +'<div class="sdc-suit">'+c.suit+'</div>'
+      +'<div class="sdc-rank">'+c.rank+'</div>'
+      +'<div class="sdc-br">'+c.rank+'<br>'+c.suit+'</div>'
+      +'</div>';
+  });
+  for(let i=communityCards.length;i<5;i++){
+    sdComm.innerHTML+='<div class="sd-cc ph"></div>';
+  }
+
+  // Player hole cards
+  const rc=document.getElementById('reveal-cards');
+  rc.innerHTML='';
+  const toShow=scored?scored:[{p:winner,score:null}];
+  toShow.forEach(({p,score})=>{
+    if(p.folded) return;
+    const isWinner=p===winner;
+    let holeWinKeys=new Set();
+    if(isWinner && winCardKeys.size>0){
+      p.hole.forEach(c=>{if(winCardKeys.has(cardKey(c))) holeWinKeys.add(cardKey(c))});
+    }
+    const div=document.createElement('div');
+    div.className='rp '+(isWinner?'winner-p':'loser');
+    let cardsHTML=p.hole.map(c=>{
+      const col=isRed(c.suit)?'red':'black';
+      const glow=holeWinKeys.has(cardKey(c));
+      return'<div class="rv-card '+col+'"'+(glow?' style="border-color:#f0c030;box-shadow:0 0 7px rgba(240,192,48,.5)"':'')+'>'+
+        '<div class="rv-tl">'+c.rank+'<br>'+c.suit+'</div>'+
+        '<div class="rv-rank">'+c.rank+'</div>'+
+        '<div class="rv-suit">'+c.suit+'</div>'+
+        '<div class="rv-br">'+c.rank+'<br>'+c.suit+'</div>'+
+        '</div>';
+    }).join('');
+    div.innerHTML='<div class="rpn">'+p.name+(score?' — '+score.name:'')+'</div><div class="rpc">'+cardsHTML+'</div>';
+    rc.appendChild(div);
+  });
+
+  renderReviewPanel(winner);
+  document.getElementById('winner-ov').classList.add('show');
+}
+
+// ═══════════════════════════════════════════════
+//  POST-HAND REVIEW PANEL — shows each street's equity for
+//  every player still in the hand at that point, so you can see
+//  exactly where the equity swung and whether your calls were sound.
+// ═══════════════════════════════════════════════
+function renderReviewPanel(winner){
+  const box=document.getElementById('review-rows');
+  box.innerHTML='';
+  if(equityHistory.length===0){
+    box.innerHTML='<div class="review-note">No equity data recorded (hand ended before a street completed).</div>';
+    return;
+  }
+  equityHistory.forEach(snap=>{
+    const row=document.createElement('div');
+    row.className='review-row';
+    const eqHTML=snap.perPlayer.map(pp=>{
+      const isWinner=players[pp.seatIdx]===winner;
+      return '<span'+(isWinner?' style="color:#f0c030"':'')+'>'+pp.name+': <b>'+pp.win.toFixed(0)+'%</b>'+(pp.tie>0?' (+'+pp.tie.toFixed(0)+'% tie)':'')+'</span>';
+    }).join('');
+    row.innerHTML='<span class="review-street">'+snap.street+'</span><span class="review-eq">'+eqHTML+'</span>';
+    box.appendChild(row);
+  });
+  // Closing note on the biggest equity swing
+  if(equityHistory.length>=2){
+    const winnerSeat=players.indexOf(winner);
+    const first=equityHistory[0].perPlayer.find(p=>p.seatIdx===winnerSeat);
+    const last=equityHistory[equityHistory.length-1].perPlayer.find(p=>p.seatIdx===winnerSeat);
+    if(first&&last){
+      const swing=(last.win-first.win).toFixed(0);
+      const note=document.createElement('div');
+      note.className='review-note';
+      note.style.marginTop='6px';
+      note.textContent=winner.name+"'s equity moved from "+first.win.toFixed(0)+'% ('+equityHistory[0].street+') to '+last.win.toFixed(0)+'% ('+equityHistory[equityHistory.length-1].street+') — a swing of '+(swing>=0?'+':'')+swing+' points.';
+      box.appendChild(note);
+    }
+  }
+}
+
+function cardKey(c){return c.rank+c.suit}
+
+function getBestCombo(hole,community){
+  const all=[...hole,...community];
+  if(all.length<5) return all;
+  let best=null, bs={rank:-1,tb:0};
+  for(const combo of getCombinations(all,5)){
+    const s=scoreCombo(combo);
+    if(s.rank>bs.rank||(s.rank===bs.rank&&s.tb>bs.tb)){bs=s;best=combo}
+  }
+  return best||all.slice(0,5);
+}
+
+function getCombinations(arr,k){
+  if(k===arr.length) return[arr];
+  if(k===1) return arr.map(x=>[x]);
+  const r=[];
+  for(let i=0;i<=arr.length-k;i++){
+    getCombinations(arr.slice(i+1),k-1).forEach(c=>r.push([arr[i],...c]));
+  }
+  return r;
+}
+
+function scoreHand(hole,community){
+  const all=[...hole,...community];
+  if(all.length<5) return{rank:0,tb:0,name:'High Card'};
+  let best={rank:-1,tb:0,name:'High Card'};
+  for(const combo of getCombinations(all,5)){
+    const s=scoreCombo(combo);
+    if(s.rank>best.rank||(s.rank===best.rank&&s.tb>best.tb)) best=s;
+  }
+  return best;
+}
+
+function scoreCombo(cards){
+  const vals=cards.map(c=>c.value).sort((a,b)=>b-a);
+  const suits=cards.map(c=>c.suit);
+  const isF=suits.every(s=>s===suits[0]);
+  const isS=(new Set(vals).size===5&&vals[0]-vals[4]===4)||
+    (vals[0]===14&&vals[1]===5&&vals[2]===4&&vals[3]===3&&vals[4]===2);
+  const cnt={};vals.forEach(v=>cnt[v]=(cnt[v]||0)+1);
+  const g=Object.entries(cnt).sort((a,b)=>b[1]-a[1]||b[0]-a[0]);
+  const tb=vals[0]*1e8+vals[1]*1e6+vals[2]*1e4+vals[3]*100+vals[4];
+  if(isF&&isS&&vals[0]===14) return{rank:9,tb:1e12,name:'Royal Flush'};
+  if(isF&&isS)               return{rank:8,tb:vals[0],name:'Straight Flush'};
+  if(g[0][1]===4)            return{rank:7,tb,name:'Four of a Kind'};
+  if(g[0][1]===3&&g[1]&&g[1][1]===2) return{rank:6,tb,name:'Full House'};
+  if(isF)                    return{rank:5,tb,name:'Flush'};
+  if(isS)                    return{rank:4,tb:vals[0],name:'Straight'};
+  if(g[0][1]===3)            return{rank:3,tb,name:'Three of a Kind'};
+  if(g[0][1]===2&&g[1]&&g[1][1]===2) return{rank:2,tb,name:'Two Pair'};
+  if(g[0][1]===2)            return{rank:1,tb,name:'One Pair'};
+  return{rank:0,tb,name:'High Card'};
+}
+
+// ═══════════════════════════════════════════════
+//  RENDERING
+// ═══════════════════════════════════════════════
+function renderSeats(){
+  const cont=document.getElementById('seats-container');
+  cont.innerHTML='';
+  const pos=LAYOUTS[numSeats]||LAYOUTS[9];
+  players.forEach((p,i)=>{
+    const el=document.createElement('div');
+    el.className='seat'; el.id='seat-'+i;
+    el.style.cssText='position:absolute;top:'+pos[i].top+';left:'+pos[i].left+';transform:translate(-50%,-50%)';
+    el.dataset.betDir=computeBetDirection(pos[i].top,pos[i].left);
+    cont.appendChild(el);
+  });
+}
+
+// Determines which side of the seat box faces the table center (where the
+// pot sits), so the bet chip can float "in front of" the seat toward the
+// middle of the table rather than overlapping the box itself.
+function computeBetDirection(topStr,leftStr){
+  const top=parseFloat(topStr), left=parseFloat(leftStr);
+  const dy=top-50;   // positive = seat sits below center -> chip points UP toward center
+  const dx=left-50;  // positive = seat sits right of center -> chip points LEFT toward center
+  // pick whichever axis has the larger offset from center as the dominant direction
+  if(Math.abs(dy)>=Math.abs(dx)){
+    return dy>0 ? 'top' : 'bottom';
+  } else {
+    return dx>0 ? 'left' : 'right';
+  }
+}
+
+function renderAll(){
+  document.getElementById('pot-display').textContent='Pot: $'+pot;
+  document.getElementById('phase-pill').textContent=phase.charAt(0).toUpperCase()+phase.slice(1);
+
+  // community cards on table
+  let ch='';
+  for(let i=0;i<5;i++) ch+=commCardHTML(communityCards[i]||null);
+  document.getElementById('community').innerHTML=ch;
+
+  // seats — only active seat shows face-up cards; all others face-down
+  players.forEach((p,i)=>{
+    const el=document.getElementById('seat-'+i);
+    if(!el) return;
+    const isCur=i===currentIdx&&!p.folded&&!p.allIn;
+    const isDlr=i===dealerIdx;
+    const isSB=i===sbIdx&&!isDlr;
+    const isBB=i===bbIdx&&!isDlr&&i!==sbIdx;
+    let stat='';
+    if(p.allIn)  stat='<div class="sstat">ALL-IN</div>';
+    if(p.folded) stat='<div class="sstat">FOLDED</div>';
+    let cls='seat-box'
+      +(isCur?' act':'')
+      +(p.folded?' fld':'')
+      +(isDlr?' dlr':'')
+      +(isSB?' is-sb':'')
+      +(isBB?' is-bb':'');
+
+    // Cards: face-up only for current active seat, face-down for everyone else
+    let cardsHTML='';
+    if(p.hole.length){
+      if(isCur){
+        // show real cards face-up
+        cardsHTML=p.hole.map(c=>smCardFaceUp(c)).join('');
+      } else {
+        // show face-down backs
+        cardsHTML='<div class="smc fd"></div><div class="smc fd"></div>';
+      }
+    }
+
+    el.innerHTML='<div class="'+cls+'">'
+      +'<div class="sname">'+p.name+'</div>'
+      +'<div class="sstack">$'+p.stack+'</div>'
+      +(p.bet>0?'<div class="sbet dir-'+(el.dataset.betDir||'top')+'">$'+p.bet+'</div>':'')
+      +'<div class="hole-cards">'+cardsHTML+'</div>'
+      +stat
+      +'</div>';
+  });
+}
+
+function commCardHTML(c){
+  if(!c) return'<div class="cc ph"></div>';
+  const col=isRed(c.suit)?'red':'black';
+  return'<div class="cc fu '+col+'">'
+    +'<div class="ctl">'+c.rank+'<br>'+c.suit+'</div>'
+    +'<div class="csuitbig">'+c.suit+'</div>'
+    +'<div class="crank">'+c.rank+'</div>'
+    +'<div class="cbr">'+c.rank+'<br>'+c.suit+'</div>'
+    +'</div>';
+}
+
+// Renders the outs list as small playing-card chips. Cards are sorted by
+// rank (high to low) and shown individually (rank + suit) so a flush draw
+// visibly shows its run of suited cards. To keep the stats strip compact,
+// only the first MAX_SHOWN cards render; the rest collapse into a "+N" tag.
+function renderOutsAsCards(outCards){
+  if(!outCards || outCards.length===0) return '';
+  const MAX_SHOWN=10;
+  const sorted=outCards.slice().sort((a,b)=>b.value-a.value);
+  const shown=sorted.slice(0,MAX_SHOWN);
+  const extra=sorted.length-shown.length;
+  let html=shown.map(c=>{
+    const col=isRed(c.suit)?'red':'black';
+    return '<span class="outs-card '+col+'"><span class="oc-rank">'+c.rank+'</span><span class="oc-suit">'+c.suit+'</span></span>';
+  }).join('');
+  if(extra>0) html+='<span class="outs-more">+'+extra+'</span>';
+  return html;
+}
+
+function smCardFaceUp(c){
+  const col=isRed(c.suit)?'red':'black';
+  return'<div class="smc fu '+col+'"><div class="smc-rank">'+c.rank+'</div><div class="smc-suit">'+c.suit+'</div></div>';
+}
+
+// ═══════════════════════════════════════════════
+//  ACTION UI UPDATE
+// ═══════════════════════════════════════════════
+function updateUI(){
+  const p=players[currentIdx];
+  if(!p) return;
+  const toCall=Math.max(0,currentBet-p.bet);
+
+  document.getElementById('cur-seat').textContent=p.name+(p.allIn?' (ALL-IN)':'');
+  document.getElementById('turn-cards').innerHTML=p.hole.map(c=>bigCardHTML(c)).join('');
+  document.getElementById('turn-info').textContent='Stack: $'+p.stack+'  |  To call: $'+toCall+'  |  Pot: $'+pot;
+
+  const chk=document.getElementById('btn-check');
+  const cal=document.getElementById('btn-call');
+  chk.style.display=toCall===0?'':'none';
+  cal.style.display=toCall>0?'':'none';
+  cal.textContent='Call $'+toCall;
+
+  const minR=Math.max(currentBet*2,currentBet+2,4);
+  const maxStack=p.stack+p.bet;
+  const sliderMax=Math.min(maxStack,100);   // slider capped at $100
+  const slider=document.getElementById('bet-slider');
+  slider.min=Math.min(minR,sliderMax);
+  slider.max=sliderMax;
+  slider.value=Math.min(minR,sliderMax);
+
+  const custom=document.getElementById('bet-custom');
+  custom.min=Math.min(minR,maxStack);
+  custom.max=maxStack;                       // custom box goes up to full stack
+  custom.value=Math.min(minR,maxStack);
+
+  updateStatsStrip(p,toCall);
+
+  // Quiz mode: pop a question whenever the current seat faces a real call
+  if(quizModeOn && toCall>0){
+    triggerPotOddsQuiz(p,toCall);
+  }
+}
+
+// ═══════════════════════════════════════════════
+//  STATS STRIP — pot odds, required equity, live equity, outs, SPR,
+//  position badge, preflop hand grade
+// ═══════════════════════════════════════════════
+function updateStatsStrip(p,toCall){
+  const seatIdx=currentIdx;
+
+  // Position
+  const posName=getPositionName(seatIdx,dealerIdx,numSeats);
+  document.getElementById('pos-badge').textContent=posName;
+
+  // Preflop grade (only meaningful before the flop, but harmless to show always)
+  const gradeChip=document.getElementById('grade-chip');
+  const gradeBadge=document.getElementById('grade-badge');
+  if(phase==='preflop' && p.hole.length===2){
+    const g=gradeStartingHand(p.hole);
+    gradeChip.style.display='';
+    gradeBadge.textContent=g.grade+(g.label?' · '+g.label:'');
+    gradeBadge.className='grade-badge grade-'+g.grade;
+  } else {
+    gradeChip.style.display='none';
+  }
+
+  // Pot odds + required equity
+  const potOddsEl=document.getElementById('stat-potodds');
+  const reqEqEl=document.getElementById('stat-reqeq');
+  if(toCall>0){
+    const potAfterCall=pot+toCall;
+    const ratio=(pot/toCall);
+    potOddsEl.textContent=ratio.toFixed(1)+':1';
+    const reqEq=(toCall/potAfterCall*100);
+    reqEqEl.textContent=reqEq.toFixed(1)+'%';
+  } else {
+    potOddsEl.textContent='—';
+    reqEqEl.textContent='—';
+  }
+
+  // Your equity vs the field (Monte Carlo) — only past preflop-only edge case,
+  // works at any street since calcEquity handles 0+ community cards
+  const myEqEl=document.getElementById('stat-myeq');
+  const liveOpponents=activePlayers().filter(pl=>pl!==p).length;
+  if(liveOpponents>0){
+    const eq=calcEquity(p.hole,liveOpponents,communityCards,250);
+    myEqEl.textContent=eq.win.toFixed(1)+'%'+(eq.tie>0?' (+'+eq.tie.toFixed(1)+'% tie)':'');
+    // color code vs required equity if there's a bet to call
+    if(toCall>0){
+      const potAfterCall=pot+toCall;
+      const reqEq=(toCall/potAfterCall*100);
+      myEqEl.className='stat-val '+(eq.win+eq.tie/2>=reqEq?'good':'bad');
+    } else {
+      myEqEl.className='stat-val';
+    }
+  } else {
+    myEqEl.textContent='—';
+    myEqEl.className='stat-val';
+  }
+
+  // Outs (flop/turn only) — shown as miniature card chips, one per unique rank,
+  // since suit only matters visually for flush-completing outs (kept on each chip).
+  const outsTextEl=document.getElementById('stat-outs-text');
+  const outsCardsEl=document.getElementById('stat-outs-cards');
+  if(communityCards.length>=3 && communityCards.length<5){
+    const o=countOuts(p.hole,communityCards);
+    outsTextEl.textContent=o.outs;
+    outsCardsEl.innerHTML=renderOutsAsCards(o.detail);
+  } else {
+    outsTextEl.textContent='—';
+    outsCardsEl.innerHTML='';
+  }
+
+  // SPR = effective stack / pot (effective stack = min of hero & largest live opponent stack)
+  const sprEl=document.getElementById('stat-spr');
+  const others=activePlayers().filter(pl=>pl!==p);
+  if(others.length>0 && pot>0){
+    const maxOppStack=Math.max(...others.map(o=>o.stack+o.bet));
+    const heroEff=p.stack+p.bet;
+    const effStack=Math.min(heroEff,maxOppStack);
+    const spr=effStack/Math.max(pot,1);
+    sprEl.textContent=spr.toFixed(1);
+  } else {
+    sprEl.textContent='—';
+  }
+}
+
+// ═══════════════════════════════════════════════
+//  POT ODDS QUIZ MODE
+// ═══════════════════════════════════════════════
+function toggleQuizMode(){
+  quizModeOn=!quizModeOn;
+  const btn=document.getElementById('btn-quiz-toggle');
+  btn.textContent='Quiz Mode: '+(quizModeOn?'On':'Off');
+  btn.classList.toggle('on',quizModeOn);
+}
+
+function triggerPotOddsQuiz(p,toCall){
+  // avoid re-triggering for the same decision point
+  if(pendingQuiz && pendingQuiz.seatIdx===currentIdx && pendingQuiz.toCall===toCall && pendingQuiz.pot===pot) return;
+  const potAfterCall=pot+toCall;
+  const reqEq=+(toCall/potAfterCall*100).toFixed(1);
+  pendingQuiz={requiredEquity:reqEq,toCall,pot,seatIdx:currentIdx};
+
+  document.getElementById('quiz-question').textContent=
+    p.name+' faces a bet of $'+toCall+' into a pot of $'+pot+
+    '. What equity (win %) do you need to make calling profitable?';
+  document.getElementById('quiz-answer').value='';
+  document.getElementById('quiz-feedback').textContent='';
+  document.getElementById('quiz-feedback').className='';
+  document.getElementById('quiz-overlay').classList.add('show');
+}
+
+function submitQuizAnswer(){
+  if(!pendingQuiz) return;
+  const val=parseFloat(document.getElementById('quiz-answer').value);
+  const fb=document.getElementById('quiz-feedback');
+  if(isNaN(val)){ fb.textContent='Enter a number first.'; fb.className='wrong'; return; }
+  const diff=Math.abs(val-pendingQuiz.requiredEquity);
+  if(diff<=2){
+    fb.textContent='Correct! Required equity ≈ '+pendingQuiz.requiredEquity+'%.';
+    fb.className='correct';
+  } else {
+    fb.textContent='Not quite. Required equity = '+pendingQuiz.requiredEquity+'% (call ÷ (pot+call)).';
+    fb.className='wrong';
+  }
+  setTimeout(dismissQuiz,1800);
+}
+
+function dismissQuiz(){
+  document.getElementById('quiz-overlay').classList.remove('show');
+  pendingQuiz=null;
+}
+
+// ═══════════════════════════════════════════════
+//  RANGE VISUALIZER — simplified 13x13 opening-range chart
+//  by position. Educational approximation, not a solver output.
+// ═══════════════════════════════════════════════
+const RANGE_POSITIONS=['UTG','HJ','CO','BTN','SB','BB'];
+const RANGE_RANKS=['A','K','Q','J','T','9','8','7','6','5','4','3','2'];
+
+// Returns 'raise' | 'call' | 'fold' for a given hand label at a given position.
+// Hand label format: 'AA' (pair), 'AKs' (suited), 'AKo' (offsuit).
+function rangeAction(handLabel,pos){
+  const r1=handLabel[0], r2=handLabel[1];
+  const suited=handLabel.endsWith('s');
+  const pair=r1===r2;
+  const idx=(r)=>RANGE_RANKS.indexOf(r);
+  const hiIdx=Math.min(idx(r1),idx(r2)); // lower index = higher rank
+  const loIdx=Math.max(idx(r1),idx(r2));
+  const gap=loIdx-hiIdx;
+
+  // tightness factor by position: lower = tighter (UTG tightest, BTN/SB/BB loosest)
+  const tightness={'UTG':0,'HJ':1,'CO':2,'BTN':3,'SB':2,'BB':3}[pos] ?? 1;
+
+  if(pair){
+    if(hiIdx<=1) return 'raise';                         // AA, KK always raise
+    if(hiIdx<=4-tightness) return 'raise';                 // mid-high pairs widen by position
+    if(hiIdx<=8) return tightness>=2?'raise':'call';
+    return tightness>=3?'call':'fold';
+  }
+  if(r1==='A'||r2==='A'){
+    if(suited) return hiIdx<=2||tightness>=1?'raise':'call';
+    // offsuit ace
+    if(loIdx<=2+tightness) return 'raise';
+    if(loIdx<=6+tightness*2) return 'call';
+    return 'fold';
+  }
+  if(r1==='K'||r2==='K'){
+    if(suited) return loIdx<=4+tightness?'raise':(loIdx<=8?'call':'fold');
+    return loIdx<=2+tightness?'raise':(loIdx<=4+tightness?'call':'fold');
+  }
+  // connectors / suited gappers
+  if(suited && gap<=2){
+    if(hiIdx<=6+tightness) return tightness>=2?'raise':'call';
+    return tightness>=3?'call':'fold';
+  }
+  if(!suited && gap<=1 && hiIdx<=4){
+    return tightness>=2?'call':'fold';
+  }
+  return 'fold';
+}
+
+function openRangeChart(){
+  buildRangePosSelector();
+  buildRangeGrid();
+  document.getElementById('range-overlay').classList.add('show');
+}
+function closeRangeChart(){
+  document.getElementById('range-overlay').classList.remove('show');
+}
+function buildRangePosSelector(){
+  const sel=document.getElementById('range-pos-select');
+  sel.innerHTML='';
+  RANGE_POSITIONS.forEach(pos=>{
+    const btn=document.createElement('button');
+    btn.className='range-pos-btn'+(pos===rangeChartPos?' sel':'');
+    btn.textContent=pos;
+    btn.onclick=()=>{ rangeChartPos=pos; buildRangePosSelector(); buildRangeGrid(); };
+    sel.appendChild(btn);
+  });
+}
+function buildRangeGrid(){
+  const grid=document.getElementById('range-grid');
+  grid.innerHTML='';
+  for(let i=0;i<13;i++){
+    for(let j=0;j<13;j++){
+      let label, suited;
+      if(i===j){ label=RANGE_RANKS[i]+RANGE_RANKS[i]; }
+      else if(i<j){ label=RANGE_RANKS[i]+RANGE_RANKS[j]+'s'; } // upper triangle = suited
+      else{ label=RANGE_RANKS[j]+RANGE_RANKS[i]+'o'; }          // lower triangle = offsuit
+      const action=rangeAction(label,rangeChartPos);
+      const cell=document.createElement('div');
+      cell.className='range-cell range-'+action;
+      cell.textContent=label;
+      grid.appendChild(cell);
+    }
+  }
+}
+
+
+function bigCardHTML(c){
+  if(!c) return'<div class="bc" style="background:#1a4a88;border-color:#2a6acc"></div>';
+  const col=isRed(c.suit)?'red':'black';
+  return'<div class="bc '+col+'">'
+    +'<div class="btl">'+c.rank+'<br>'+c.suit+'</div>'
+    +'<div class="brank">'+c.rank+'</div>'
+    +'<div class="bsuit">'+c.suit+'</div>'
+    +'<div class="bbr">'+c.rank+'<br>'+c.suit+'</div>'
+    +'</div>';
+}
+
+// ═══════════════════════════════════════════════
+//  SLIDER ↔ CUSTOM BOX SYNC
+// ═══════════════════════════════════════════════
+document.getElementById('bet-slider').addEventListener('input',function(){
+  document.getElementById('bet-custom').value=this.value;
+});
+document.getElementById('bet-custom').addEventListener('input',function(){
+  const v=parseInt(this.value)||0;
+  const sl=document.getElementById('bet-slider');
+  if(v>=parseInt(sl.min)&&v<=parseInt(sl.max)) sl.value=v;
+});
+
+// ═══════════════════════════════════════════════
+//  TABLE SCALE SLIDER
+// ═══════════════════════════════════════════════
+document.getElementById('table-scale-slider').addEventListener('input',function(){
+  const scale=parseFloat(this.value);
+  document.getElementById('app').style.setProperty('--scale',scale);
+  document.getElementById('scale-val').textContent=Math.round(scale*100)+'%';
+});
+document.getElementById('ui-scale-slider').addEventListener('input',function(){
+  const scale=parseFloat(this.value);
+  document.getElementById('app').style.setProperty('--ui-scale',scale);
+  document.getElementById('ui-scale-val').textContent=Math.round(scale*100)+'%';
+});
+
+// ═══════════════════════════════════════════════
+//  LOG  — appends to inner scrollable div
+// ═══════════════════════════════════════════════
+function log(msg,hl=false){
+  const inner=document.getElementById('history-inner');
+  const p=document.createElement('p');
+  p.className='le'+(hl?' hl':'');
+  p.textContent=msg;
+  inner.appendChild(p);
+  inner.scrollTop=inner.scrollHeight;  // auto-scroll to bottom
+}
+function clearLog(){
+  document.getElementById('history-inner').innerHTML='';
+}
+
+// ═══════════════════════════════════════════════
+//  CONTROLS
+// ═══════════════════════════════════════════════
+function applySettings(){initGame()}
+function nextHand(){startHand()}
+
+initGame();
+</script>
+</body>
+</html>
