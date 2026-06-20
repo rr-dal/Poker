@@ -138,10 +138,17 @@ html,body{height:100%;width:100%;overflow:hidden;background:#071210;font-family:
 .outs-more{font-size:calc(10px * var(--ui-scale));color:#9abba0;align-self:center}
 
 /* ── Table section — flex:1 so it fills remaining space ──────── */
+/* Row containing the table (left/center) and hand history (right) side by side */
+#main-row{
+  flex:1 1 0;
+  display:flex;
+  min-height:0;
+  overflow:hidden;
+}
 #table-section{
   flex:1 1 0;position:relative;display:flex;
   align-items:center;justify-content:center;
-  min-height:0;padding:clamp(4px,1vh,12px);
+  min-height:0;min-width:0;padding:clamp(4px,1vh,12px);
   overflow:visible;
 }
 #table-wrap{
@@ -288,47 +295,21 @@ html,body{height:100%;width:100%;overflow:hidden;background:#071210;font-family:
   flex-direction:column;
 }
 
-/* info-row: fixed height, no flex-grow on children */
-#info-row{
-  display:flex;
-  border-bottom:1px solid #1a4a22;
-  height:calc(clamp(90px,14vh,125px) * var(--ui-scale)); /* FIXED height, scalable */
-  flex-shrink:0;
-  overflow:hidden;
-}
-
-/* Current seat box — fixed, never grows */
-#turn-box{
-  flex:0 0 auto;
-  width:calc(clamp(160px,22vw,280px) * var(--ui-scale));
-  padding:calc(clamp(5px,.8vh,10px) * var(--ui-scale)) calc(clamp(8px,1.2vw,14px) * var(--ui-scale));
-  border-right:1px solid #1a4a22;
-  overflow:hidden;
-  display:flex;flex-direction:column;
-}
-#turn-box h3{flex:0 0 auto;font-size:calc(clamp(8px,.85vw,11px) * var(--ui-scale));color:#6a9a7a;text-transform:uppercase;letter-spacing:.7px;margin-bottom:3px}
-#cur-seat{flex:0 0 auto;font-size:calc(clamp(10px,1.1vw,14px) * var(--ui-scale));color:#f0c030;font-weight:700;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#turn-cards{
-  flex:1 1 auto;
-  display:flex;gap:calc(clamp(4px,.5vw,8px) * var(--ui-scale));align-items:center;
-  margin-bottom:2px;
-  min-height:0;
-  overflow:hidden;
-}
-#turn-info{flex:0 0 auto;font-size:calc(clamp(8px,.85vw,11px) * var(--ui-scale));color:#9abb9a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-
-/* History box — fixed height, internal scroll only */
+/* Hand History — now a sidebar to the right of the table, full height of
+   the main row, with its own scroll so long histories don't resize anything */
 #history-box{
-  flex:1 1 0;
-  padding:calc(clamp(5px,.8vh,10px) * var(--ui-scale)) calc(clamp(8px,1.2vw,14px) * var(--ui-scale));
-  overflow-y:auto;   /* scrollable */
-  min-width:0;
+  flex:0 0 auto;
+  width:calc(clamp(170px,20vw,260px) * var(--ui-scale));
+  border-left:1px solid #1a4a22;
+  padding:calc(clamp(6px,1vh,10px) * var(--ui-scale)) calc(clamp(8px,1.2vw,14px) * var(--ui-scale));
+  overflow-y:auto;
+  min-height:0;
   display:flex;flex-direction:column;
 }
 #history-box h3{
-  font-size:calc(clamp(8px,.85vw,11px) * var(--ui-scale));color:#6a9a7a;text-transform:uppercase;
-  letter-spacing:.7px;margin-bottom:3px;
-  position:sticky;top:0;background:#040d07;padding-bottom:2px;flex-shrink:0;
+  font-size:calc(clamp(9px,.95vw,12px) * var(--ui-scale));color:#6a9a7a;text-transform:uppercase;
+  letter-spacing:.7px;margin-bottom:5px;
+  position:sticky;top:0;background:#040d07;padding-bottom:3px;flex-shrink:0;
 }
 #history-inner{
   flex:1 1 0;
@@ -378,94 +359,76 @@ html,body{height:100%;width:100%;overflow:hidden;background:#071210;font-family:
 .abtn-allin{background:#111111;color:#fff;border:2px solid #555}
 .abtn-next{background:#3a2a00;color:#f0c030;border:2px solid #7a5a00}
 
-/* ── Big cards (turn-box display) ─────────────── */
-.bc{
-  height:100%;
-  aspect-ratio:34/48;
-  max-width:42%;
-  border-radius:6px;border:2px solid #bbb;background:#fff;
-  display:flex;flex-direction:column;align-items:center;justify-content:center;
-  font-weight:700;position:relative;flex-shrink:1;
+/* ── Showdown controls — small corner control, not a banner over the table ── */
+#showdown-controls{
+  position:absolute;
+  bottom:calc(8px * var(--scale));
+  right:calc(8px * var(--scale));
+  display:none;
+  flex-direction:column;align-items:flex-end;gap:6px;
+  z-index:60;
 }
-.bc .brank{font-size:calc(clamp(11px,1.3vw,18px) * var(--ui-scale));line-height:1}
-.bc .bsuit{font-size:calc(clamp(13px,1.5vw,21px) * var(--ui-scale));line-height:1.1}
-.bc.red .brank,.bc.red .bsuit{color:#cc1111}
-.bc.black .brank,.bc.black .bsuit{color:#111}
-.bc .btl{position:absolute;top:3px;left:4px;font-size:calc(clamp(6px,.6vw,9px) * var(--ui-scale));line-height:1.1}
-.bc .bbr{position:absolute;bottom:3px;right:4px;font-size:calc(clamp(6px,.6vw,9px) * var(--ui-scale));line-height:1.1;transform:rotate(180deg)}
+#showdown-controls.show{display:flex}
+#btn-next-hand{
+  padding:calc(8px * var(--ui-scale)) calc(18px * var(--ui-scale));
+  font-size:calc(clamp(11px,1.2vw,15px) * var(--ui-scale));
+  min-width:0;
+}
 
-/* ── Winner overlay ───────────────────────────── */
-#winner-ov{
-  position:fixed;inset:0;background:rgba(0,0,0,.93);
-  display:none;align-items:center;justify-content:center;
-  flex-direction:column;gap:clamp(7px,1vh,14px);z-index:300;
-  padding:16px;overflow-y:auto;
+/* Losing community cards — grayed out and 15% smaller so the remaining
+   (winning) cards read clearly as the winning combination, with no
+   highlight needed on the winners themselves. */
+.cc.lose-card{
+  width:calc(clamp(22px,2.55vw,37.4px) * var(--scale));
+  height:calc(clamp(31.45px,3.655vw,52.7px) * var(--scale));
+  filter:grayscale(60%) brightness(.65);
+  opacity:.75;
 }
-#winner-ov.show{display:flex}
-#wt{font-size:clamp(18px,2.4vw,30px);font-weight:700;color:#f0c030;text-align:center;text-shadow:0 2px 8px rgba(0,0,0,.7)}
-#ws{font-size:clamp(12px,1.3vw,17px);color:#e8d5a3;text-align:center}
 
-/* showdown community cards */
-#sd-community{display:flex;gap:clamp(5px,.6vw,9px);justify-content:center;flex-wrap:wrap;margin:2px 0}
-.sd-cc{
-  border-radius:6px;border:2px solid #bbb;background:#fff;
-  display:flex;flex-direction:column;align-items:center;justify-content:center;
-  font-weight:700;position:relative;flex-shrink:0;
-  width:clamp(32px,3.5vw,48px);height:clamp(46px,5vw,68px);
+/* Winner's seat gets a clear on-table indicator */
+.seat-box.is-winner{
+  border-color:#f0c030;
+  background:#2a2210;
+  box-shadow:0 0 0 2px rgba(240,192,48,.4);
 }
-.sd-cc.win-card{
-  width:clamp(40px,4.3vw,58px);height:clamp(56px,6.1vw,80px);
-  border-color:#f0c030;box-shadow:0 0 10px 3px rgba(240,192,48,.55);z-index:2;
+.seat-box.is-winner::after{
+  content:"WINNER";
+  position:absolute;
+  bottom:100%;left:50%;
+  transform:translateX(-50%);
+  margin-bottom:calc(14px * var(--scale));
+  background:#f0c030;color:#1a1200;
+  font-size:calc(8px * var(--scale));font-weight:900;
+  letter-spacing:.5px;
+  border-radius:6px;
+  padding:2px calc(7px * var(--scale));
+  white-space:nowrap;
+  font-family:sans-serif;
 }
-.sd-cc.ph{background:rgba(255,255,255,.07);border:2px dashed rgba(255,255,255,.2)}
-.sd-cc .sdc-tl{position:absolute;top:2px;left:3px;font-size:clamp(6px,.6vw,9px);line-height:1.15}
-.sd-cc .sdc-br{position:absolute;bottom:2px;right:3px;font-size:clamp(6px,.6vw,9px);line-height:1.15;transform:rotate(180deg)}
-.sd-cc .sdc-suit{font-size:clamp(11px,1.3vw,18px);line-height:1}
-.sd-cc .sdc-rank{font-size:clamp(9px,1vw,14px);line-height:1}
-.sd-cc.red .sdc-tl,.sd-cc.red .sdc-br,.sd-cc.red .sdc-suit,.sd-cc.red .sdc-rank{color:#cc1111}
-.sd-cc.black .sdc-tl,.sd-cc.black .sdc-br,.sd-cc.black .sdc-suit,.sd-cc.black .sdc-rank{color:#111}
 
-/* showdown players */
-.rrow{display:flex;gap:clamp(8px,1.2vw,16px);flex-wrap:wrap;justify-content:center}
-.rp{text-align:center;padding:5px 8px;border-radius:6px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08)}
-.rpn{font-size:clamp(9px,.9vw,12px);color:#9abba0;margin-bottom:4px}
-.rpc{display:flex;gap:clamp(3px,.4vw,6px);justify-content:center}
-.rv-card{
-  width:clamp(34px,3.6vw,52px);height:clamp(48px,5.2vw,73px);
-  border-radius:6px;border:2px solid #bbb;background:#fff;
-  display:flex;flex-direction:column;align-items:center;justify-content:center;
-  font-weight:700;position:relative;flex-shrink:0;
-}
-.rv-card.red .rv-rank,.rv-card.red .rv-suit{color:#cc1111}
-.rv-card.black .rv-rank,.rv-card.black .rv-suit{color:#111}
-.rv-card .rv-tl{position:absolute;top:3px;left:4px;font-size:clamp(6px,.6vw,9px);line-height:1.1}
-.rv-card .rv-br{position:absolute;bottom:3px;right:4px;font-size:clamp(6px,.6vw,9px);line-height:1.1;transform:rotate(180deg)}
-.rv-card .rv-rank{font-size:clamp(11px,1.3vw,18px);line-height:1}
-.rv-card .rv-suit{font-size:clamp(13px,1.5vw,21px);line-height:1.1}
-.rp.loser .rv-card{filter:grayscale(10%) brightness(.9)}
-.rp.loser .rpn{color:#6a7a6a}
-.rp.winner-p{border-color:#f0c030;background:rgba(240,192,48,.07)}
-.rp.winner-p .rpn{color:#f0c030;font-weight:700}
-
-/* ── Post-hand review panel ───────────────────── */
+/* ── Post-hand review panel (collapsible, tucked in the corner) ──── */
 #review-panel{
-  margin-top:6px;width:min(94vw,640px);
-  background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.1);
-  border-radius:8px;padding:clamp(8px,1.2vh,14px) clamp(10px,1.5vw,18px);
-  max-height:34vh;overflow-y:auto;
+  width:min(80vw,360px);
+  background:rgba(8,22,13,.96);border:1px solid #3a8a4a;
+  border-radius:8px;padding:clamp(6px,1vh,10px) clamp(8px,1.2vw,14px);
+  max-height:30vh;overflow-y:auto;
+  box-shadow:0 4px 16px rgba(0,0,0,.5);
 }
-#review-panel h4{font-size:clamp(10px,1vw,13px);color:#6a9a7a;text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px}
+#review-panel summary{
+  font-size:clamp(9px,.95vw,12px);color:#9ef0a8;text-transform:uppercase;
+  letter-spacing:.6px;cursor:pointer;outline:none;text-align:right;
+}
 .review-row{
   display:flex;align-items:center;gap:clamp(6px,1vw,14px);
   padding:4px 0;border-bottom:1px solid rgba(255,255,255,.06);
-  font-size:clamp(9px,.9vw,12px);flex-wrap:wrap;
+  font-size:clamp(8px,.85vw,11px);flex-wrap:wrap;margin-top:6px;
 }
 .review-row:last-child{border-bottom:none}
-.review-street{color:#9abba0;min-width:48px;font-weight:700;text-transform:uppercase;font-size:clamp(8px,.8vw,10px)}
+.review-street{color:#9abba0;min-width:48px;font-weight:700;text-transform:uppercase;font-size:clamp(7px,.75vw,9px)}
 .review-eq{display:flex;gap:8px;flex-wrap:wrap}
 .review-eq span{color:#e8d5a3}
 .review-eq b{color:#f0c030}
-.review-note{color:#7a9a80;font-size:clamp(8px,.85vw,11px);font-style:italic}
+.review-note{color:#7a9a80;font-size:clamp(7px,.8vw,10px);font-style:italic}
 
 /* ── Pot odds quiz mode ────────────────────────── */
 #quiz-overlay{
@@ -569,46 +532,48 @@ html,body{height:100%;width:100%;overflow:hidden;background:#071210;font-family:
   </span>
 </div>
 
-<!-- Table -->
-<div id="table-section">
-  <div id="table-wrap">
-    <div id="table-felt">
-      <div id="pot-display">Pot: $0</div>
-      <div id="community"></div>
-      <div id="seats-container"></div>
+<!-- Table + Hand History side-by-side -->
+<div id="main-row">
+  <div id="table-section">
+    <div id="table-wrap">
+      <div id="table-felt">
+        <div id="pot-display">Pot: $0</div>
+        <div id="community"></div>
+        <div id="seats-container"></div>
+
+        <!-- Minimal showdown control — winner is shown via the highlighted
+             seat + enlarged community cards on the table itself, so this is
+             just the Next Hand button and an optional review panel, tucked
+             in a corner instead of covering the table. -->
+        <div id="showdown-controls">
+          <details id="review-panel">
+            <summary>Equity Review</summary>
+            <div id="review-rows"></div>
+          </details>
+          <button class="abtn abtn-next" id="btn-next-hand" onclick="nextHand()">Next Hand ▶</button>
+        </div>
+      </div>
+      <div id="scale-row">
+        <label for="table-scale-slider">Table Size</label>
+        <input type="range" id="table-scale-slider" min="0.6" max="2.2" step="0.05" value="1">
+        <span id="scale-val">100%</span>
+        <span class="scale-divider"></span>
+        <label for="ui-scale-slider">Text/UI Size</label>
+        <input type="range" id="ui-scale-slider" min="0.7" max="2" step="0.05" value="1">
+        <span id="ui-scale-val">100%</span>
+      </div>
     </div>
-    <div id="scale-row">
-      <label for="table-scale-slider">Table Size</label>
-      <input type="range" id="table-scale-slider" min="0.6" max="2.2" step="0.05" value="1">
-      <span id="scale-val">100%</span>
-      <span class="scale-divider"></span>
-      <label for="ui-scale-slider">Text/UI Size</label>
-      <input type="range" id="ui-scale-slider" min="0.7" max="2" step="0.05" value="1">
-      <span id="ui-scale-val">100%</span>
-    </div>
+  </div>
+
+  <!-- Hand History — now beside the table instead of in the bottom panel -->
+  <div id="history-box">
+    <h3>Hand History</h3>
+    <div id="history-inner"></div>
   </div>
 </div>
 
 <!-- Bottom panel — fixed, never grows -->
 <div id="bottom-panel">
-  <div id="info-row">
-
-    <!-- Left: current seat cards — static width, no scroll -->
-    <div id="turn-box">
-      <h3>Current Seat</h3>
-      <div id="cur-seat">—</div>
-      <div id="turn-cards"></div>
-      <div id="turn-info"></div>
-    </div>
-
-    <!-- Right: history — scrollable internally, header sticky -->
-    <div id="history-box">
-      <h3>Hand History</h3>
-      <div id="history-inner"></div>
-    </div>
-
-  </div>
-
   <!-- Raise row -->
   <div id="raise-row">
     <label>Raise to:</label>
@@ -627,19 +592,6 @@ html,body{height:100%;width:100%;overflow:hidden;background:#071210;font-family:
 </div>
 
 </div><!-- #app -->
-
-<!-- Winner overlay -->
-<div id="winner-ov">
-  <div id="wt"></div>
-  <div id="ws"></div>
-  <div id="sd-community"></div>
-  <div class="rrow" id="reveal-cards"></div>
-  <div id="review-panel">
-    <h4>Post-Hand Review — Equity By Street</h4>
-    <div id="review-rows"></div>
-  </div>
-  <button class="abtn abtn-next" onclick="nextHand()" style="margin-top:6px">Next Hand ▶</button>
-</div>
 
 <!-- Pot odds quiz overlay -->
 <div id="quiz-overlay">
@@ -914,16 +866,36 @@ function recordStreetEquity(streetLabel){
 // ═══════════════════════════════════════════════
 //  SEAT LAYOUTS
 // ═══════════════════════════════════════════════
-const LAYOUTS={
-  2:[{top:'82%',left:'50%'},{top:'12%',left:'50%'}],
-  3:[{top:'82%',left:'50%'},{top:'28%',left:'13%'},{top:'28%',left:'87%'}],
-  4:[{top:'82%',left:'50%'},{top:'50%',left:'5%'},{top:'12%',left:'50%'},{top:'50%',left:'95%'}],
-  5:[{top:'85%',left:'50%'},{top:'62%',left:'8%'},{top:'18%',left:'22%'},{top:'18%',left:'78%'},{top:'62%',left:'92%'}],
-  6:[{top:'88%',left:'50%'},{top:'70%',left:'10%'},{top:'22%',left:'8%'},{top:'8%',left:'50%'},{top:'22%',left:'92%'},{top:'70%',left:'90%'}],
-  7:[{top:'88%',left:'50%'},{top:'70%',left:'10%'},{top:'28%',left:'4%'},{top:'8%',left:'30%'},{top:'8%',left:'70%'},{top:'28%',left:'96%'},{top:'70%',left:'90%'}],
-  8:[{top:'88%',left:'50%'},{top:'72%',left:'12%'},{top:'38%',left:'3%'},{top:'10%',left:'25%'},{top:'6%',left:'50%'},{top:'10%',left:'75%'},{top:'38%',left:'97%'},{top:'72%',left:'88%'}],
-  9:[{top:'88%',left:'50%'},{top:'72%',left:'14%'},{top:'42%',left:'3%'},{top:'14%',left:'18%'},{top:'5%',left:'40%'},{top:'5%',left:'60%'},{top:'14%',left:'82%'},{top:'42%',left:'97%'},{top:'72%',left:'86%'}],
-};
+// ═══════════════════════════════════════════════
+//  CASINO-STYLE SEATING — a fixed, non-playing Dealer position sits at
+//  top-center, facing the players. Player seats wrap clockwise starting
+//  just to the dealer's LEFT hand (which, since the dealer faces the
+//  viewer, appears on the screen's RIGHT side near the top) and proceed
+//  clockwise around the table — through the right side, the bottom, the
+//  left side — ending with the last seat just to the dealer's RIGHT hand
+//  (screen-left near the top).
+// ═══════════════════════════════════════════════
+const DEALER_ANGLE=-90;      // top-center, in standard math degrees (0=right, 90=down)
+const DEALER_GAP_DEG=40;     // empty arc at the top, giving clear space between seat 1 and the last seat
+const TABLE_RX=46, TABLE_RY=43, TABLE_CX=50, TABLE_CY=50; // ellipse center/radii, in %
+
+function computeSeatLayout(n){
+  // Sweep clockwise from just past the dealer's left hand to just before
+  // the dealer's right hand, distributing n seats evenly across that arc.
+  const startAngle=DEALER_ANGLE+DEALER_GAP_DEG/2;
+  const endAngle=DEALER_ANGLE+360-DEALER_GAP_DEG/2;
+  const span=endAngle-startAngle;
+  const positions=[];
+  for(let i=0;i<n;i++){
+    const t = n===1 ? 0 : i/(n-1);
+    const angleDeg=(startAngle+t*span)%360;
+    const rad=angleDeg*Math.PI/180;
+    const left=TABLE_CX+TABLE_RX*Math.cos(rad);
+    const top=TABLE_CY+TABLE_RY*Math.sin(rad);
+    positions.push({top:top.toFixed(1)+'%',left:left.toFixed(1)+'%'});
+  }
+  return positions;
+}
 
 // ═══════════════════════════════════════════════
 //  GAME STATE
@@ -938,6 +910,13 @@ let quizModeOn=false;
 let pendingQuiz=null;          // {requiredEquity, toCall, pot, seatIdx}
 let equityHistory=[];          // [{street, perPlayer:[{seatIdx,name,win,tie}]}]
 let rangeChartPos='BTN';       // currently selected position in range viewer
+
+// Showdown display state — read by renderAll() to show the result directly
+// on the table (enlarged winning community cards, revealed hole cards for
+// every player who reached showdown, and a WINNER tag on the winning seat).
+let winningCardKeys=new Set(); // cardKey()s of the community cards in the winning combo
+let showdownWinnerIdx=-1;      // seat index of the hand's winner, -1 when no showdown is displayed
+let showdownActiveIdxs=[];     // seat indices of every player whose hole cards should be revealed
 
 // ═══════════════════════════════════════════════
 //  INIT / START
@@ -958,9 +937,12 @@ function startHand(){
   deck=shuffle(makeDeck());
   communityCards=[]; pot=0; currentBet=0; phase='preflop';
   players.forEach(p=>{p.hole=[];p.folded=false;p.allIn=false;p.bet=0});
-  document.getElementById('winner-ov').classList.remove('show');
+  document.getElementById('showdown-controls').classList.remove('show');
   document.getElementById('hand-counter').textContent='Hand #'+handNum;
   equityHistory=[];
+  winningCardKeys=new Set();
+  showdownWinnerIdx=-1;
+  showdownActiveIdxs=[];
 
   sbIdx=(dealerIdx+1)%numSeats;
   bbIdx=(dealerIdx+2)%numSeats;
@@ -1122,67 +1104,26 @@ function endHand(){
   dealerIdx=(dealerIdx+1)%numSeats;
 
   showWinner(winner,handName,allScored);
-  renderAll();
 }
 
 function showWinner(winner,handName,scored){
-  document.getElementById('wt').textContent=winner.name+' Wins $'+pot+'!';
-  document.getElementById('ws').textContent=handName||'Last player standing';
-
-  // Find winning 5-card combo keys
-  let winCardKeys=new Set();
+  // Determine which community cards formed the winning hand, and which seat
+  // won — both are read by renderAll() so the table itself reflects the
+  // result: the winner's seat is highlighted, and every community card that
+  // ISN'T part of the winning combo is grayed out and shrunk 15%, leaving
+  // the winning cards reading clearly at their normal size. Every player who
+  // reached showdown also has their hole cards revealed face-up at their seat.
+  winningCardKeys=new Set();
   if(scored && communityCards.length>=3){
     const winCards=getBestCombo(winner.hole,communityCards);
-    winCards.forEach(c=>winCardKeys.add(cardKey(c)));
+    winCards.forEach(c=>winningCardKeys.add(cardKey(c)));
   }
-
-  // Community cards with highlights
-  const sdComm=document.getElementById('sd-community');
-  sdComm.innerHTML='';
-  communityCards.forEach(c=>{
-    const isWin=winCardKeys.has(cardKey(c));
-    const col=isRed(c.suit)?'red':'black';
-    const cls='sd-cc fu '+col+(isWin?' win-card':'');
-    sdComm.innerHTML+='<div class="'+cls+'">'
-      +'<div class="sdc-tl">'+c.rank+'<br>'+c.suit+'</div>'
-      +'<div class="sdc-suit">'+c.suit+'</div>'
-      +'<div class="sdc-rank">'+c.rank+'</div>'
-      +'<div class="sdc-br">'+c.rank+'<br>'+c.suit+'</div>'
-      +'</div>';
-  });
-  for(let i=communityCards.length;i<5;i++){
-    sdComm.innerHTML+='<div class="sd-cc ph"></div>';
-  }
-
-  // Player hole cards
-  const rc=document.getElementById('reveal-cards');
-  rc.innerHTML='';
-  const toShow=scored?scored:[{p:winner,score:null}];
-  toShow.forEach(({p,score})=>{
-    if(p.folded) return;
-    const isWinner=p===winner;
-    let holeWinKeys=new Set();
-    if(isWinner && winCardKeys.size>0){
-      p.hole.forEach(c=>{if(winCardKeys.has(cardKey(c))) holeWinKeys.add(cardKey(c))});
-    }
-    const div=document.createElement('div');
-    div.className='rp '+(isWinner?'winner-p':'loser');
-    let cardsHTML=p.hole.map(c=>{
-      const col=isRed(c.suit)?'red':'black';
-      const glow=holeWinKeys.has(cardKey(c));
-      return'<div class="rv-card '+col+'"'+(glow?' style="border-color:#f0c030;box-shadow:0 0 7px rgba(240,192,48,.5)"':'')+'>'+
-        '<div class="rv-tl">'+c.rank+'<br>'+c.suit+'</div>'+
-        '<div class="rv-rank">'+c.rank+'</div>'+
-        '<div class="rv-suit">'+c.suit+'</div>'+
-        '<div class="rv-br">'+c.rank+'<br>'+c.suit+'</div>'+
-        '</div>';
-    }).join('');
-    div.innerHTML='<div class="rpn">'+p.name+(score?' — '+score.name:'')+'</div><div class="rpc">'+cardsHTML+'</div>';
-    rc.appendChild(div);
-  });
+  showdownWinnerIdx=players.indexOf(winner);
+  showdownActiveIdxs=scored ? scored.map(s=>players.indexOf(s.p)) : [showdownWinnerIdx];
 
   renderReviewPanel(winner);
-  document.getElementById('winner-ov').classList.add('show');
+  renderAll(); // re-render table now that winningCardKeys/showdownWinnerIdx are set
+  document.getElementById('showdown-controls').classList.add('show');
 }
 
 // ═══════════════════════════════════════════════
@@ -1284,7 +1225,7 @@ function scoreCombo(cards){
 function renderSeats(){
   const cont=document.getElementById('seats-container');
   cont.innerHTML='';
-  const pos=LAYOUTS[numSeats]||LAYOUTS[9];
+  const pos=computeSeatLayout(numSeats);
   players.forEach((p,i)=>{
     const el=document.createElement('div');
     el.className='seat'; el.id='seat-'+i;
@@ -1313,12 +1254,24 @@ function renderAll(){
   document.getElementById('pot-display').textContent='Pot: $'+pot;
   document.getElementById('phase-pill').textContent=phase.charAt(0).toUpperCase()+phase.slice(1);
 
-  // community cards on table
+  // community cards on table — once a showdown has resolved, every card
+  // NOT part of the winning combination is grayed out and shrunk so the
+  // winning combination reads clearly by elimination (winningCardKeys is
+  // populated by showWinner; empty during normal play, so cards render
+  // at full size/color with no graying until a hand actually finishes).
+  const atShowdownNow=showdownWinnerIdx>=0;
   let ch='';
-  for(let i=0;i<5;i++) ch+=commCardHTML(communityCards[i]||null);
+  for(let i=0;i<5;i++){
+    const c=communityCards[i]||null;
+    const isLoser=atShowdownNow && c && winningCardKeys.size>0 && !winningCardKeys.has(cardKey(c));
+    ch+=commCardHTML(c,isLoser);
+  }
   document.getElementById('community').innerHTML=ch;
 
-  // seats — only active seat shows face-up cards; all others face-down
+  // seats — normally only the active seat shows face-up cards; once a hand
+  // reaches showdown, every player who got there is revealed face-up and the
+  // winner's seat gets a WINNER tag, so the result is visible on the table.
+  const atShowdown=showdownWinnerIdx>=0;
   players.forEach((p,i)=>{
     const el=document.getElementById('seat-'+i);
     if(!el) return;
@@ -1326,6 +1279,8 @@ function renderAll(){
     const isDlr=i===dealerIdx;
     const isSB=i===sbIdx&&!isDlr;
     const isBB=i===bbIdx&&!isDlr&&i!==sbIdx;
+    const isShowdownWinner=atShowdown && i===showdownWinnerIdx;
+    const revealAtShowdown=atShowdown && showdownActiveIdxs.includes(i);
     let stat='';
     if(p.allIn)  stat='<div class="sstat">ALL-IN</div>';
     if(p.folded) stat='<div class="sstat">FOLDED</div>';
@@ -1334,16 +1289,16 @@ function renderAll(){
       +(p.folded?' fld':'')
       +(isDlr?' dlr':'')
       +(isSB?' is-sb':'')
-      +(isBB?' is-bb':'');
+      +(isBB?' is-bb':'')
+      +(isShowdownWinner?' is-winner':'');
 
-    // Cards: face-up only for current active seat, face-down for everyone else
+    // Cards: face-up for the current active seat, OR for any player revealed
+    // at showdown; face-down backs for everyone else.
     let cardsHTML='';
     if(p.hole.length){
-      if(isCur){
-        // show real cards face-up
+      if(isCur || revealAtShowdown){
         cardsHTML=p.hole.map(c=>smCardFaceUp(c)).join('');
       } else {
-        // show face-down backs
         cardsHTML='<div class="smc fd"></div><div class="smc fd"></div>';
       }
     }
@@ -1358,10 +1313,11 @@ function renderAll(){
   });
 }
 
-function commCardHTML(c){
+function commCardHTML(c,isLoser){
   if(!c) return'<div class="cc ph"></div>';
   const col=isRed(c.suit)?'red':'black';
-  return'<div class="cc fu '+col+'">'
+  const cls='cc fu '+col+(isLoser?' lose-card':'');
+  return'<div class="'+cls+'">'
     +'<div class="ctl">'+c.rank+'<br>'+c.suit+'</div>'
     +'<div class="csuitbig">'+c.suit+'</div>'
     +'<div class="crank">'+c.rank+'</div>'
@@ -1399,10 +1355,6 @@ function updateUI(){
   const p=players[currentIdx];
   if(!p) return;
   const toCall=Math.max(0,currentBet-p.bet);
-
-  document.getElementById('cur-seat').textContent=p.name+(p.allIn?' (ALL-IN)':'');
-  document.getElementById('turn-cards').innerHTML=p.hole.map(c=>bigCardHTML(c)).join('');
-  document.getElementById('turn-info').textContent='Stack: $'+p.stack+'  |  To call: $'+toCall+'  |  Pot: $'+pot;
 
   const chk=document.getElementById('btn-check');
   const cal=document.getElementById('btn-call');
@@ -1648,17 +1600,6 @@ function buildRangeGrid(){
   }
 }
 
-
-function bigCardHTML(c){
-  if(!c) return'<div class="bc" style="background:#1a4a88;border-color:#2a6acc"></div>';
-  const col=isRed(c.suit)?'red':'black';
-  return'<div class="bc '+col+'">'
-    +'<div class="btl">'+c.rank+'<br>'+c.suit+'</div>'
-    +'<div class="brank">'+c.rank+'</div>'
-    +'<div class="bsuit">'+c.suit+'</div>'
-    +'<div class="bbr">'+c.rank+'<br>'+c.suit+'</div>'
-    +'</div>';
-}
 
 // ═══════════════════════════════════════════════
 //  SLIDER ↔ CUSTOM BOX SYNC
