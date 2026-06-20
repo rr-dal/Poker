@@ -213,24 +213,39 @@ html,body{height:100%;width:100%;overflow:hidden;background:#071210;font-family:
 }
 .seat-box.act{border-color:#f0c030;background:#192e18}
 .seat-box.fld{opacity:.35}
-/* Dealer puck */
-.seat-box.dlr::before{
-  content:"D";position:absolute;top:calc(-12px * var(--scale));left:50%;transform:translateX(-50%);
+
+/* Badges are explicit child elements (built in renderAll), not pseudo-
+   elements, so the dealer puck, SB/BB chip, RAISER tag, and WINNER tag can
+   all coexist on the same seat without any of them silently overwriting
+   one another. Each occupies its own corner/edge so they never overlap. */
+.badge{
+  position:absolute;
+  font-weight:900;font-family:sans-serif;white-space:nowrap;
+  border-radius:6px;
+  z-index:5;
+}
+.badge-dealer{
+  top:calc(-12px * var(--scale));left:50%;transform:translateX(-50%);
   background:#f0c030;color:#000;border-radius:50%;
-  width:calc(15px * var(--scale));height:calc(15px * var(--scale));display:flex;align-items:center;justify-content:center;
-  font-size:calc(8px * var(--scale));font-weight:900;font-family:sans-serif;
+  width:calc(15px * var(--scale));height:calc(15px * var(--scale));
+  display:flex;align-items:center;justify-content:center;
+  font-size:calc(8px * var(--scale));
 }
-/* SB chip — placed left so it doesn't overlap D button */
-.seat-box.is-sb::after{
-  content:"SB";position:absolute;top:calc(-13px * var(--scale));left:-2px;
-  background:#2266bb;color:#fff;border-radius:8px;
-  padding:1px calc(5px * var(--scale));font-size:calc(7px * var(--scale));font-weight:900;font-family:sans-serif;
+.badge-sb,.badge-bb{
+  top:calc(-13px * var(--scale));left:-2px;
+  padding:1px calc(5px * var(--scale));font-size:calc(7px * var(--scale));
 }
-/* BB chip */
-.seat-box.is-bb::after{
-  content:"BB";position:absolute;top:calc(-13px * var(--scale));left:-2px;
-  background:#bb7700;color:#fff;border-radius:8px;
-  padding:1px calc(5px * var(--scale));font-size:calc(7px * var(--scale));font-weight:900;font-family:sans-serif;
+.badge-sb{background:#2266bb;color:#fff}
+.badge-bb{background:#bb7700;color:#fff}
+.badge-raiser{
+  bottom:calc(-13px * var(--scale));right:-2px;
+  background:#dc143c;color:#fff;letter-spacing:.3px;
+  padding:1px calc(5px * var(--scale));font-size:calc(7px * var(--scale));
+}
+.badge-winner{
+  top:calc(-13px * var(--scale));right:-2px;
+  background:#f0c030;color:#1a1200;letter-spacing:.3px;
+  padding:1px calc(5px * var(--scale));font-size:calc(7px * var(--scale));
 }
 .sname{font-size:calc(clamp(7px,.8vw,10px) * var(--scale));color:#7a9a80;font-weight:600}
 .sstack{font-size:calc(clamp(8px,.9vw,12px) * var(--scale));color:#e8d5a3;font-weight:700}
@@ -352,21 +367,21 @@ html,body{height:100%;width:100%;overflow:hidden;background:#071210;font-family:
 }
 .abtn:hover{filter:brightness(1.15)}
 .abtn:active{transform:scale(.96)}
+.abtn:disabled{opacity:.35;cursor:not-allowed;filter:none;transform:none}
 .abtn-fold{background:#c0120e;color:#fff}
 .abtn-check{background:#157a1a;color:#fff}
 .abtn-call{background:#1a7a30;color:#fff}
 .abtn-raise{background:#1840a0;color:#fff}
 .abtn-allin{background:#111111;color:#fff;border:2px solid #555}
 .abtn-next{background:#3a2a00;color:#f0c030;border:2px solid #7a5a00}
+#bet-slider:disabled,#bet-custom:disabled{opacity:.4;cursor:not-allowed}
 
-/* ── Showdown controls — small corner control, not a banner over the table ── */
+/* ── Showdown controls — sit below the table in normal flow, never
+   overlapping seats or cards ── */
 #showdown-controls{
-  position:absolute;
-  bottom:calc(8px * var(--scale));
-  right:calc(8px * var(--scale));
   display:none;
-  flex-direction:column;align-items:flex-end;gap:6px;
-  z-index:60;
+  flex-direction:column;align-items:center;gap:6px;
+  flex-shrink:0;
 }
 #showdown-controls.show{display:flex}
 #btn-next-hand{
@@ -385,25 +400,25 @@ html,body{height:100%;width:100%;overflow:hidden;background:#071210;font-family:
   opacity:.75;
 }
 
-/* Winner's seat gets a clear on-table indicator */
+/* Winner's seat gets a clear on-table indicator (the WINNER tag itself is
+   a child .badge-winner div, built in renderAll) */
 .seat-box.is-winner{
   border-color:#f0c030;
   background:#2a2210;
   box-shadow:0 0 0 2px rgba(240,192,48,.4);
 }
-.seat-box.is-winner::after{
-  content:"WINNER";
-  position:absolute;
-  bottom:100%;left:50%;
-  transform:translateX(-50%);
-  margin-bottom:calc(14px * var(--scale));
-  background:#f0c030;color:#1a1200;
-  font-size:calc(8px * var(--scale));font-weight:900;
-  letter-spacing:.5px;
-  border-radius:6px;
-  padding:2px calc(7px * var(--scale));
-  white-space:nowrap;
-  font-family:sans-serif;
+
+/* Initial pre-flop raiser — held for the rest of the hand. Uses an outset
+   box-shadow ring (not border-color) so it layers cleanly on top of the
+   active/dealer/winner states instead of fighting them for the same
+   property — a seat can be highlighted gold AND ringed crimson at once.
+   The RAISER tag itself is a child .badge-raiser div, built in renderAll. */
+.seat-box.is-initial-raiser{
+  box-shadow:0 0 0 2px #dc143c, 0 0 8px 1px rgba(220,20,60,.6);
+}
+.seat-box.is-initial-raiser.is-winner{
+  /* combine both ring colors when a seat is both the raiser and the winner */
+  box-shadow:0 0 0 2px #dc143c, 0 0 0 4px rgba(240,192,48,.5), 0 0 8px 1px rgba(220,20,60,.5);
 }
 
 /* ── Post-hand review panel (collapsible, tucked in the corner) ──── */
@@ -416,7 +431,7 @@ html,body{height:100%;width:100%;overflow:hidden;background:#071210;font-family:
 }
 #review-panel summary{
   font-size:clamp(9px,.95vw,12px);color:#9ef0a8;text-transform:uppercase;
-  letter-spacing:.6px;cursor:pointer;outline:none;text-align:right;
+  letter-spacing:.6px;cursor:pointer;outline:none;text-align:center;
 }
 .review-row{
   display:flex;align-items:center;gap:clamp(6px,1vw,14px);
@@ -540,19 +555,18 @@ html,body{height:100%;width:100%;overflow:hidden;background:#071210;font-family:
         <div id="pot-display">Pot: $0</div>
         <div id="community"></div>
         <div id="seats-container"></div>
-
-        <!-- Minimal showdown control — winner is shown via the highlighted
-             seat + enlarged community cards on the table itself, so this is
-             just the Next Hand button and an optional review panel, tucked
-             in a corner instead of covering the table. -->
-        <div id="showdown-controls">
-          <details id="review-panel">
-            <summary>Equity Review</summary>
-            <div id="review-rows"></div>
-          </details>
-          <button class="abtn abtn-next" id="btn-next-hand" onclick="nextHand()">Next Hand ▶</button>
-        </div>
       </div>
+
+      <!-- Showdown controls — Equity Review + Next Hand button, now placed
+           below the table entirely so they never overlap any seat or card. -->
+      <div id="showdown-controls">
+        <details id="review-panel">
+          <summary>Equity Review</summary>
+          <div id="review-rows"></div>
+        </details>
+        <button class="abtn abtn-next" id="btn-next-hand" onclick="nextHand()">Next Hand ▶</button>
+      </div>
+
       <div id="scale-row">
         <label for="table-scale-slider">Table Size</label>
         <input type="range" id="table-scale-slider" min="0.6" max="2.2" step="0.05" value="1">
@@ -915,8 +929,13 @@ let rangeChartPos='BTN';       // currently selected position in range viewer
 // on the table (enlarged winning community cards, revealed hole cards for
 // every player who reached showdown, and a WINNER tag on the winning seat).
 let winningCardKeys=new Set(); // cardKey()s of the community cards in the winning combo
-let showdownWinnerIdx=-1;      // seat index of the hand's winner, -1 when no showdown is displayed
+let showdownWinnerIdxs=[];     // seat indices of the hand's winner(s) — multiple in a chop, empty when no showdown is displayed
 let showdownActiveIdxs=[];     // seat indices of every player whose hole cards should be revealed
+
+// Initial pre-flop raiser — the first player to raise before the flop is
+// tagged for the rest of the hand (crimson outline), so it's easy to
+// remember who the original aggressor was even after the action moves on.
+let initialRaiserIdx=-1;       // seat index of the first preflop raiser this hand, -1 if no one has raised yet
 
 // ═══════════════════════════════════════════════
 //  INIT / START
@@ -941,7 +960,8 @@ function startHand(){
   document.getElementById('hand-counter').textContent='Hand #'+handNum;
   equityHistory=[];
   winningCardKeys=new Set();
-  showdownWinnerIdx=-1;
+  showdownWinnerIdxs=[];
+  initialRaiserIdx=-1;
   showdownActiveIdxs=[];
 
   sbIdx=(dealerIdx+1)%numSeats;
@@ -980,6 +1000,28 @@ function skipFolded(){
 // ═══════════════════════════════════════════════
 function activePlayers(){return players.filter(p=>!p.folded)}
 function activeNotAllIn(){return players.filter(p=>!p.folded&&!p.allIn)}
+
+// True once betting is conclusively finished for the REST of the hand —
+// not just this street. This happens when at most one player remains who
+// could still voluntarily act (everyone else is either folded or all-in),
+// since with zero or one live decision-makers there's no one left to bet
+// against. In that case the hand should auto-deal straight through to
+// showdown with no further action prompts, rather than waiting on a player
+// who has no real decision left to make.
+function noMoreActionPossible(){
+  const act=activePlayers();
+  if(act.length<=1) return true;
+  return activeNotAllIn().length<=1;
+}
+
+// Disables (or re-enables) every action control — the five buttons plus the
+// raise slider and custom amount box — so nothing is clickable while an
+// all-in runout is auto-dealing through the remaining streets.
+function setActionButtonsEnabled(enabled){
+  document.querySelectorAll('#action-btns button').forEach(btn=>{btn.disabled=!enabled});
+  document.getElementById('bet-slider').disabled=!enabled;
+  document.getElementById('bet-custom').disabled=!enabled;
+}
 
 function isBettingRoundOver(){
   const act=activePlayers();
@@ -1021,6 +1063,7 @@ function playerAction(action){
     currentBet=p.bet;
     if(p.stack===0) p.allIn=true;
     actedThisRound=actedThisRound.map((_,i)=>i===currentIdx);
+    if(phase==='preflop' && initialRaiserIdx===-1) initialRaiserIdx=currentIdx;
     log(p.name+' raises to $'+p.bet);
   } else if(action==='allin'){
     const a=p.stack;
@@ -1028,6 +1071,7 @@ function playerAction(action){
     if(p.bet>currentBet){
       currentBet=p.bet;
       actedThisRound=actedThisRound.map((_,i)=>i===currentIdx);
+      if(phase==='preflop' && initialRaiserIdx===-1) initialRaiserIdx=currentIdx;
     } else {
       actedThisRound[currentIdx]=true;
     }
@@ -1078,6 +1122,25 @@ function advancePhase(){
 
   document.getElementById('phase-pill').textContent=phase.charAt(0).toUpperCase()+phase.slice(1);
   renderAll();
+
+  // Once no one has a remaining decision to make (everyone left is all-in,
+  // or only one player can still act against an all-in opponent), betting
+  // is over for the REST of the hand — there's nothing to wait on, so the
+  // board deals straight through to showdown automatically. Action buttons
+  // stay disabled throughout (see setActionButtonsEnabled), and each street
+  // is paced with a short delay so the runout is easy to follow rather than
+  // flashing through instantly.
+  if(noMoreActionPossible()){
+    setActionButtonsEnabled(false);
+    if(phase==='river'){
+      // river is already dealt above; pause briefly before showdown
+      setTimeout(endHand,650);
+    } else {
+      setTimeout(advancePhase,650);
+    }
+    return;
+  }
+
   if(isBettingRoundOver()){advancePhase();return}
   updateUI();
 }
@@ -1087,42 +1150,75 @@ function advancePhase(){
 // ═══════════════════════════════════════════════
 function endHand(){
   const act=activePlayers();
-  let winner, handName=null, allScored=null;
+  let winners, handName=null, allScored=null;
 
   if(act.length===1){
-    winner=act[0];
+    winners=[act[0]];
   } else {
     allScored=act.map(p=>({p,score:scoreHand(p.hole,communityCards)}));
     allScored.sort((a,b)=>b.score.rank-a.score.rank||(b.score.tb-a.score.tb));
-    winner=allScored[0].p;
-    handName=allScored[0].score.name;
+    const bestScore=allScored[0].score;
+    handName=bestScore.name;
+    // A chopped pot: every player whose score exactly matches the best
+    // score (same hand rank AND same tiebreak kickers) shares the win —
+    // this is the standard rule for a tie at showdown.
+    winners=allScored
+      .filter(s=>s.score.rank===bestScore.rank && s.score.tb===bestScore.tb)
+      .map(s=>s.p);
   }
 
-  winner.stack+=pot;
-  log('★ '+winner.name+' wins $'+pot+(handName?' with '+handName:'')+'!',true);
+  // Split the pot evenly. Chip amounts are whole dollars, so an uneven
+  // split (e.g. $101 between 2 players) can't divide perfectly — any
+  // leftover cents-equivalent go to the player(s) closest to the dealer's
+  // left in order (the standard live-poker odd-chip rule), one extra
+  // dollar at a time until the remainder is exhausted.
+  const baseShare=Math.floor(pot/winners.length);
+  let remainder=pot-baseShare*winners.length;
+  // order winners by proximity to the seat left of the dealer for odd-chip assignment
+  const orderedWinners=winners.slice().sort((a,b)=>{
+    const ia=(players.indexOf(a)-dealerIdx+numSeats)%numSeats;
+    const ib=(players.indexOf(b)-dealerIdx+numSeats)%numSeats;
+    return ia-ib;
+  });
+  orderedWinners.forEach(p=>{
+    const extra=remainder>0?1:0;
+    if(remainder>0) remainder--;
+    p.stack+=baseShare+extra;
+  });
+
+  if(winners.length===1){
+    log('★ '+winners[0].name+' wins $'+pot+(handName?' with '+handName:'')+'!',true);
+  } else {
+    const names=winners.map(p=>p.name).join(' & ');
+    log('★ Pot chopped — '+names+' split $'+pot+' with '+handName+' (each gets $'+baseShare+(remainder>0?'+':'')+')!',true);
+  }
+
   players.forEach(p=>{if(p.stack===0) p.stack=buyIn});
   dealerIdx=(dealerIdx+1)%numSeats;
 
-  showWinner(winner,handName,allScored);
+  showWinner(winners,handName,allScored);
 }
 
-function showWinner(winner,handName,scored){
-  // Determine which community cards formed the winning hand, and which seat
-  // won — both are read by renderAll() so the table itself reflects the
-  // result: the winner's seat is highlighted, and every community card that
-  // ISN'T part of the winning combo is grayed out and shrunk 15%, leaving
-  // the winning cards reading clearly at their normal size. Every player who
-  // reached showdown also has their hole cards revealed face-up at their seat.
+function showWinner(winners,handName,scored){
+  // Determine which community cards formed the winning hand, and which
+  // seat(s) won — both are read by renderAll() so the table itself reflects
+  // the result: every winning seat is highlighted (all of them, in a chop),
+  // and every community card that ISN'T part of at least one winner's combo
+  // is grayed out and shrunk 15%, leaving the winning cards reading clearly
+  // at their normal size. Every player who reached showdown also has their
+  // hole cards revealed face-up at their seat.
   winningCardKeys=new Set();
   if(scored && communityCards.length>=3){
-    const winCards=getBestCombo(winner.hole,communityCards);
-    winCards.forEach(c=>winningCardKeys.add(cardKey(c)));
+    winners.forEach(w=>{
+      const winCards=getBestCombo(w.hole,communityCards);
+      winCards.forEach(c=>winningCardKeys.add(cardKey(c)));
+    });
   }
-  showdownWinnerIdx=players.indexOf(winner);
-  showdownActiveIdxs=scored ? scored.map(s=>players.indexOf(s.p)) : [showdownWinnerIdx];
+  showdownWinnerIdxs=winners.map(w=>players.indexOf(w));
+  showdownActiveIdxs=scored ? scored.map(s=>players.indexOf(s.p)) : showdownWinnerIdxs;
 
-  renderReviewPanel(winner);
-  renderAll(); // re-render table now that winningCardKeys/showdownWinnerIdx are set
+  renderReviewPanel(winners[0]);
+  renderAll(); // re-render table now that winningCardKeys/showdownWinnerIdxs are set
   document.getElementById('showdown-controls').classList.add('show');
 }
 
@@ -1259,7 +1355,7 @@ function renderAll(){
   // winning combination reads clearly by elimination (winningCardKeys is
   // populated by showWinner; empty during normal play, so cards render
   // at full size/color with no graying until a hand actually finishes).
-  const atShowdownNow=showdownWinnerIdx>=0;
+  const atShowdownNow=showdownWinnerIdxs.length>0;
   let ch='';
   for(let i=0;i<5;i++){
     const c=communityCards[i]||null;
@@ -1269,9 +1365,10 @@ function renderAll(){
   document.getElementById('community').innerHTML=ch;
 
   // seats — normally only the active seat shows face-up cards; once a hand
-  // reaches showdown, every player who got there is revealed face-up and the
-  // winner's seat gets a WINNER tag, so the result is visible on the table.
-  const atShowdown=showdownWinnerIdx>=0;
+  // reaches showdown, every player who got there is revealed face-up and
+  // every winning seat (more than one in a chopped pot) gets a WINNER tag,
+  // so the result is visible on the table.
+  const atShowdown=showdownWinnerIdxs.length>0;
   players.forEach((p,i)=>{
     const el=document.getElementById('seat-'+i);
     if(!el) return;
@@ -1279,18 +1376,28 @@ function renderAll(){
     const isDlr=i===dealerIdx;
     const isSB=i===sbIdx&&!isDlr;
     const isBB=i===bbIdx&&!isDlr&&i!==sbIdx;
-    const isShowdownWinner=atShowdown && i===showdownWinnerIdx;
+    const isShowdownWinner=atShowdown && showdownWinnerIdxs.includes(i);
     const revealAtShowdown=atShowdown && showdownActiveIdxs.includes(i);
+    const isInitialRaiser=i===initialRaiserIdx;
     let stat='';
     if(p.allIn)  stat='<div class="sstat">ALL-IN</div>';
     if(p.folded) stat='<div class="sstat">FOLDED</div>';
     let cls='seat-box'
       +(isCur?' act':'')
       +(p.folded?' fld':'')
-      +(isDlr?' dlr':'')
       +(isSB?' is-sb':'')
       +(isBB?' is-bb':'')
-      +(isShowdownWinner?' is-winner':'');
+      +(isShowdownWinner?' is-winner':'')
+      +(isInitialRaiser?' is-initial-raiser':'');
+
+    // Badges are explicit child elements (not ::before/::after pseudo-
+    // elements) so any combination — dealer + raiser, raiser + winner,
+    // SB + winner, etc. — can all render at once without one silently
+    // overwriting another on the same pseudo-element slot.
+    let badgesHTML='';
+    if(isDlr) badgesHTML+='<div class="badge badge-dealer">D</div>';
+    if(isInitialRaiser) badgesHTML+='<div class="badge badge-raiser">RAISER</div>';
+    if(isShowdownWinner) badgesHTML+='<div class="badge badge-winner">WINNER</div>';
 
     // Cards: face-up for the current active seat, OR for any player revealed
     // at showdown; face-down backs for everyone else.
@@ -1304,6 +1411,7 @@ function renderAll(){
     }
 
     el.innerHTML='<div class="'+cls+'">'
+      +badgesHTML
       +'<div class="sname">'+p.name+'</div>'
       +'<div class="sstack">$'+p.stack+'</div>'
       +(p.bet>0?'<div class="sbet dir-'+(el.dataset.betDir||'top')+'">$'+p.bet+'</div>':'')
@@ -1355,6 +1463,8 @@ function updateUI(){
   const p=players[currentIdx];
   if(!p) return;
   const toCall=Math.max(0,currentBet-p.bet);
+
+  setActionButtonsEnabled(true);
 
   const chk=document.getElementById('btn-check');
   const cal=document.getElementById('btn-call');
