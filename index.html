@@ -524,6 +524,7 @@ html,body{height:100%;width:100%;overflow:hidden;background:#071210;font-family:
   <span id="hand-counter"></span>
   <button class="btn-toggle" id="btn-quiz-toggle" onclick="toggleQuizMode()">Quiz Mode: Off</button>
   <button class="btn-toggle" onclick="openRangeChart()">Range Chart</button>
+  <button class="btn-toggle" id="btn-clean-outs-toggle" onclick="toggleCleanOuts()" title="Discount flush outs on paired boards and outs that pair an already-paired board card">Clean Outs Only: Off</button>
 </div>
 
 <!-- Stats strip: pot odds, equity, outs, SPR, position, grade -->
@@ -783,82 +784,174 @@ function calcEquity(heroHole,oppCount,community,trials){
 }
 
 // ═══════════════════════════════════════════════
-//  OUTS COUNTER — counts cards that improve hero to a better hand
+//  HAND CLASSIFIER FOR OUTS — a self-contained 5-card evaluator that,
+//  unlike scoreCombo() elsewhere in the app, also reports exactly which
+//  cards form the SCORING GROUP of the hand (the pair/trips ranks, the
+//  straight run, the flush suit) as opposed to incidental kickers. This
+//  distinction is the crux of correct outs counting: a card that merely
+//  pairs the board while hero's hole cards sit unused as kickers should
+//  NOT count as a hero out, even though the 5-card hand's rank went up.
 // ═══════════════════════════════════════════════
+function classifyForOuts(cards){
+  const vals=cards.map(c=>c.value).sort((a,b)=>b-a);
+  const suits=cards.map(c=>c.suit);
+  const isFlush=suits.every(s=>s===suits[0]);
+  const distinctVals=Array.from(new Set(vals));
+  const isStraight=(distinctVals.length===5&&vals[0]-vals[4]===4)||
+    (vals[0]===14&&vals[1]===5&&vals[2]===4&&vals[3]===3&&vals[4]===2);
+  const cnt={}; vals.forEach(v=>cnt[v]=(cnt[v]||0)+1);
+  const groups=Object.entries(cnt).map(([v,c])=>({val:+v,count:c}))
+    .sort((a,b)=>b.count-a.count||b.val-a.val);
+  const tb=vals[0]*1e8+vals[1]*1e6+vals[2]*1e4+vals[3]*100+vals[4];
+
+  if(isFlush&&isStraight){
+    return {rank:vals[0]===14?9:8, tb, scoringCards:cards.slice()};
+  }
+  if(groups[0].count===4){
+    const quadVal=groups[0].val;
+    return {rank:7, tb, scoringCards:cards.filter(c=>c.value===quadVal)};
+  }
+  if(groups[0].count===3 && groups[1] && groups[1].count===2){
+    const tripVal=groups[0].val, pairVal=groups[1].val;
+    return {rank:6, tb, scoringCards:cards.filter(c=>c.value===tripVal||c.value===pairVal)};
+  }
+  if(isFlush){
+    return {rank:5, tb, scoringCards:cards.slice()};
+  }
+  if(isStraight){
+    return {rank:4, tb:vals[0], scoringCards:cards.slice()};
+  }
+  if(groups[0].count===3){
+    const tripVal=groups[0].val;
+    return {rank:3, tb, scoringCards:cards.filter(c=>c.value===tripVal)};
+  }
+  if(groups[0].count===2 && groups[1] && groups[1].count===2){
+    const p1=groups[0].val, p2=groups[1].val;
+    return {rank:2, tb, scoringCards:cards.filter(c=>c.value===p1||c.value===p2)};
+  }
+  if(groups[0].count===2){
+    const pairVal=groups[0].val;
+    return {rank:1, tb, scoringCards:cards.filter(c=>c.value===pairVal)};
+  }
+  return {rank:0, tb, scoringCards:cards.slice()};
+}
+
+// Best-of-7 (or fewer) search using the outs-specific classifier above,
+// returning the winning classification including its scoringCards.
+function evalBestForOuts(cards){
+  let best=null;
+  for(const combo of getCombinations(cards,5)){
+    const c=classifyForOuts(combo);
+    if(best===null||c.rank>best.rank||(c.rank===best.rank&&c.tb>best.tb)) best=c;
+  }
+  return best;
+}
+
 // ═══════════════════════════════════════════════
-//  OUTS COUNTER — standard poker definition: cards that complete
-//  a flush draw, straight draw, or upgrade an existing made hand
-//  (pair -> trips/two pair, trips -> quads, two pair -> trips/full house).
-//  Deliberately excludes "backing into a brand-new low pair" since
-//  that's not how outs are counted at the table.
+//  OUTS COUNTER (rebuilt) — for every unseen card:
+//    a) build the future best hand (hero hole + board + test card)
+//    b) the future hand's RANK must be strictly higher than the current
+//       best hand's rank — a bigger kicker within the same category is
+//       not an out
+//    c) at least one of hero's two hole cards must appear among the
+//       FUTURE hand's scoring cards (the pair/trips ranks, the straight
+//       run, or the flush) — not merely sit alongside it as a kicker.
+//       This is the filter that correctly excludes board-pairing cards:
+//       pairing a board card when hero's hole cards are just kickers
+//       improves the hand for whoever holds that rank, but not for hero
+//       specifically through hero's own cards.
+//    d) if the improvement is only to a pair or two pair, the paired
+//       rank must be top pair or better (at least as high as every other
+//       card on the board) — pairing a low hole card into bottom or
+//       middle pair against bigger board cards isn't a meaningful out,
+//       even though it technically "uses" a hero card and raises the
+//       hand's category. Straights, flushes, trips, and quads have no
+//       such requirement since reaching those categories at all is
+//       already a real improvement regardless of rank.
+//  Worked example: AKs on T-J-7 rainbow = 10 outs (3 aces + 3 kings, each
+//  making top pair; 4 queens, completing the nut straight with both hole
+//  cards). Tens/Jacks/Sevens correctly score 0 — they only pair the board,
+//  with hero's A-K sitting unused as kickers.
 // ═══════════════════════════════════════════════
 function countOuts(heroHole,community){
   if(community.length<3||community.length>=5) return {outs:0,detail:[]};
   const usedKeys=new Set([...heroHole,...community].map(cardKey));
   const fullDeck=makeDeck().filter(c=>!usedKeys.has(cardKey(c)));
 
-  const allCards=[...heroHole,...community];
-  const baseBest=evalBest(allCards);
-  const heroHasMadeHand=baseBest.rank>=1; // already has a pair or better
+  const knownCards=[...heroHole,...community];
+  const currentBest=evalBestForOuts(knownCards);
+  const heroKeys=new Set(heroHole.map(cardKey));
+  const highestBoardValue=Math.max(...community.map(c=>c.value));
 
-  const outSet=new Set();
+  const detail=fullDeck.filter(testCard=>{
+    const futureBest=evalBestForOuts([...knownCards,testCard]);
+    if(futureBest.rank<=currentBest.rank) return false; // (b) must improve rank
+    if(!futureBest.scoringCards.some(c=>heroKeys.has(cardKey(c)))) return false; // (c) must use a hero card
 
-  // ── Flush draw: 4 of hero's 5 known cards (using both hole cards) share a suit ──
-  const suitCounts={};
-  allCards.forEach(c=>{ suitCounts[c.suit]=(suitCounts[c.suit]||0)+1; });
-  const heroSuits=[heroHole[0].suit,heroHole[1].suit];
-  for(const s of new Set(heroSuits)){
-    if(suitCounts[s]===4){
-      fullDeck.forEach(c=>{ if(c.suit===s) outSet.add(cardKey(c)); });
+    if(futureBest.rank===1||futureBest.rank===2){ // (d) pair / two pair must be top-pair-or-better
+      const pairedValues=futureBest.scoringCards.map(c=>c.value);
+      const topPairedValue=Math.max(...pairedValues);
+      if(topPairedValue<highestBoardValue) return false;
     }
-  }
-
-  // ── Straight draw: find ranks that complete a 5-in-a-row using hero's cards ──
-  // Build set of distinct values present (hero + board), test each candidate card
-  // to see if adding it creates a straight that hero's hole cards participate in.
-  const presentVals=new Set(allCards.map(c=>c.value));
-  fullDeck.forEach(c=>{
-    if(outSet.has(cardKey(c))) return; // already counted as flush out
-    const trialVals=new Set(presentVals); trialVals.add(c.value);
-    if(formsStraightUsingHero(trialVals,heroHole)) outSet.add(cardKey(c));
+    return true;
   });
 
-  // ── Made-hand upgrades: pair -> trips/two pair, trips -> quads, two pair -> full house ──
-  // Only counted if hero already has a pair or better (drawing to improve a made hand).
-  if(heroHasMadeHand){
-    fullDeck.forEach(c=>{
-      if(outSet.has(cardKey(c))) return;
-      const newScore=evalBest([...allCards,c]);
-      if(newScore.rank>baseBest.rank) outSet.add(cardKey(c));
-    });
-  }
-
-  const detail=fullDeck.filter(c=>outSet.has(cardKey(c)));
   return {outs:detail.length,detail};
 }
 
-// Checks whether adding the candidate value to the known set of values
-// creates a 5-card straight, AND that straight requires at least one of
-// hero's hole card values to complete (so board-only straights don't count
-// as "outs" hero needs — they'd make the straight regardless).
-function formsStraightUsingHero(valSet,heroHole){
-  const heroVals=new Set(heroHole.map(c=>c.value));
-  const vals=Array.from(valSet);
-  // wheel: treat Ace as 1 too
-  if(valSet.has(14)) vals.push(1);
-  const sorted=Array.from(new Set(vals)).sort((a,b)=>a-b);
-  for(let i=0;i<=sorted.length-5;i++){
-    let consecutive=true;
-    for(let k=0;k<4;k++){ if(sorted[i+k+1]-sorted[i+k]!==1){ consecutive=false; break; } }
-    if(consecutive){
-      const straightVals=sorted.slice(i,i+5);
-      // does this straight include a value only achievable via hero's hole cards?
-      const usesHero=straightVals.some(v=>heroVals.has(v)||(v===1&&heroVals.has(14)));
-      if(usesHero) return true;
-    }
-  }
-  return false;
+// ═══════════════════════════════════════════════
+//  CLEAN OUTS FILTER (optional, toggleable) — discounts technically-valid
+//  outs that are unlikely to actually win, per the pro "discount" method:
+//    - Flush completions on a paired board (could lose to a full house)
+//    - Outs that pair a card already visible 2+ times on the board itself
+//      (less likely hero has the case cards live, and more likely to make
+//      an opponent's set into a stronger hand too)
+//  This is a heuristic filter for practice purposes, not a full range
+//  analysis — it trims the rough edges off the theoretical out count.
+// ═══════════════════════════════════════════════
+function isCleanOut(heroHole,community,testCard,futureBest){
+  const boardVals={}; community.forEach(c=>{ boardVals[c.value]=(boardVals[c.value]||0)+1; });
+  const boardIsPaired=Object.values(boardVals).some(n=>n>=2);
+
+  // Flush outs on a paired board are discounted — a made flush can still
+  // lose to a full house or better on boards that are already paired.
+  const isFlushOut=futureBest.rank===5||futureBest.rank===8||futureBest.rank===9;
+  if(isFlushOut && boardIsPaired) return false;
+
+  // Outs that pair a rank that's already paired ON THE BOARD ITSELF
+  // (i.e. hero would need running trips/quads against a paired board)
+  // are riskier — discount them as a rough proxy for "may already be in
+  // an opponent's range" / reverse-implied-odds situations.
+  const testVal=testCard.value;
+  if(boardVals[testVal]>=2) return false;
+
+  return true;
 }
+
+function countCleanOuts(heroHole,community){
+  if(community.length<3||community.length>=5) return {outs:0,detail:[]};
+  const usedKeys=new Set([...heroHole,...community].map(cardKey));
+  const fullDeck=makeDeck().filter(c=>!usedKeys.has(cardKey(c)));
+
+  const knownCards=[...heroHole,...community];
+  const currentBest=evalBestForOuts(knownCards);
+  const heroKeys=new Set(heroHole.map(cardKey));
+  const highestBoardValue=Math.max(...community.map(c=>c.value));
+
+  const detail=fullDeck.filter(testCard=>{
+    const futureBest=evalBestForOuts([...knownCards,testCard]);
+    if(futureBest.rank<=currentBest.rank) return false;
+    if(!futureBest.scoringCards.some(c=>heroKeys.has(cardKey(c)))) return false;
+    if(futureBest.rank===1||futureBest.rank===2){
+      const topPairedValue=Math.max(...futureBest.scoringCards.map(c=>c.value));
+      if(topPairedValue<highestBoardValue) return false;
+    }
+    return isCleanOut(heroHole,community,testCard,futureBest);
+  });
+
+  return {outs:detail.length,detail};
+}
+
 
 // ═══════════════════════════════════════════════
 //  EQUITY SNAPSHOT — records each active player's win/tie equity
@@ -921,6 +1014,7 @@ let actedThisRound=[];
 
 // new feature state
 let quizModeOn=false;
+let cleanOutsOnly=false;       // when true, the Outs stat uses countCleanOuts() instead of countOuts()
 let pendingQuiz=null;          // {requiredEquity, toCall, pot, seatIdx}
 let equityHistory=[];          // [{street, perPlayer:[{seatIdx,name,win,tie}]}]
 let rangeChartPos='BTN';       // currently selected position in range viewer
@@ -1552,10 +1646,11 @@ function updateStatsStrip(p,toCall){
 
   // Outs (flop/turn only) — shown as miniature card chips, one per unique rank,
   // since suit only matters visually for flush-completing outs (kept on each chip).
+  // When "Clean Outs Only" is toggled on, discount-filtered outs are shown instead.
   const outsTextEl=document.getElementById('stat-outs-text');
   const outsCardsEl=document.getElementById('stat-outs-cards');
   if(communityCards.length>=3 && communityCards.length<5){
-    const o=countOuts(p.hole,communityCards);
+    const o=cleanOutsOnly ? countCleanOuts(p.hole,communityCards) : countOuts(p.hole,communityCards);
     outsTextEl.textContent=o.outs;
     outsCardsEl.innerHTML=renderOutsAsCards(o.detail);
   } else {
@@ -1585,6 +1680,20 @@ function toggleQuizMode(){
   const btn=document.getElementById('btn-quiz-toggle');
   btn.textContent='Quiz Mode: '+(quizModeOn?'On':'Off');
   btn.classList.toggle('on',quizModeOn);
+}
+
+function toggleCleanOuts(){
+  cleanOutsOnly=!cleanOutsOnly;
+  const btn=document.getElementById('btn-clean-outs-toggle');
+  btn.textContent='Clean Outs Only: '+(cleanOutsOnly?'On':'Off');
+  btn.classList.toggle('on',cleanOutsOnly);
+  // refresh the stats strip immediately so the toggle takes effect without
+  // waiting for the next action
+  const p=players[currentIdx];
+  if(p){
+    const toCall=Math.max(0,currentBet-p.bet);
+    updateStatsStrip(p,toCall);
+  }
 }
 
 function triggerPotOddsQuiz(p,toCall){
